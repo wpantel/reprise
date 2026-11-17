@@ -3,6 +3,8 @@ import { useEffect, useRef, type ReactNode } from 'react'
 const SHAPES = {
   /** Right-hand panel on desktop, full screen on a phone. */
   panel: 'inset-y-0 right-0 left-auto h-dvh max-h-none w-full max-w-none md:max-w-md md:border-l',
+  /** Covers the whole screen, for reading from the music stand. */
+  full: 'inset-0 h-dvh max-h-none w-screen max-w-none',
   center: 'inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[min(38rem,calc(100vw-2rem))] rounded-2xl border',
 }
 

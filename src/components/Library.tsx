@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { EMPTY_FILTERS, hasActiveFilters, matches, sortSongs, type Filters, type Sort } from '../lib/filters'
+import { EMPTY_MEDLEY, type MedleyState } from '../lib/medley'
 import { agoLabel, daysSince, isSameDay, lastPlays, recentlyPlayed, reviveGroups } from '../lib/history'
 import type { Play, Song } from '../lib/songs'
 import type { SongStore } from '../lib/store'
@@ -7,6 +8,8 @@ import { useSongs } from '../lib/useSongs'
 import { AnalyticsView } from './AnalyticsView'
 import { BulkAdd } from './BulkAdd'
 import { Logo } from './controls'
+import { MedleyView } from './MedleyView'
+import { SetsView } from './SetsView'
 import { FilterControls, FilterSummary, KeyFilter } from './FilterBar'
 import { hueStyle } from './Piano'
 import { QuickAdd } from './QuickAdd'
@@ -18,9 +21,11 @@ const SORT_KEY = 'repertoire.sort'
 /** Pitch classes in circle-of-fifths order: C, G, D, A, … */
 const FIFTHS = Array.from({ length: 12 }, (_, i) => (i * 7) % 12)
 
-type View = 'library' | 'revive' | 'analytics'
+type View = 'library' | 'medley' | 'sets' | 'revive' | 'analytics'
 const VIEWS: { id: View; label: string }[] = [
   { id: 'library', label: 'Library' },
+  { id: 'medley', label: 'Medley' },
+  { id: 'sets', label: 'Sets' },
   { id: 'revive', label: 'Revive' },
   { id: 'analytics', label: 'Analytics' },
 ]
@@ -51,12 +56,14 @@ const savedSort = (): Sort => {
 export function Library({ store, onSignOut }: { store: SongStore; onSignOut?: () => void }) {
   const [notice, setNotice] = useState<Notice | null>(null)
   const onError = useCallback((text: string) => setNotice({ text, error: true }), [])
-  const { songs, plays, status, reload, add, update, remove, logPlay, removePlay } = useSongs(store, onError)
+  const { songs, plays, sets, status, reload, add, update, remove, logPlay, removePlay, createSet, updateSet, removeSet } = useSongs(store, onError)
   const [view, setViewState] = useState<View>(viewFromHash)
   const [filters, setFiltersState] = useState<Filters>(EMPTY_FILTERS)
   const [sort, setSort] = useState<Sort>(savedSort)
   const [openId, setOpenId] = useState<string | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
+  const [medley, setMedley] = useState<MedleyState>(EMPTY_MEDLEY)
+  const [openSetId, setOpenSetId] = useState<string | null>(null)
   const [lastAddedId, setLastAddedId] = useState<string | null>(null)
   // The "added but hidden" hint only applies to filters that were on when the song was added.
   const setFilters = (f: Filters) => {
@@ -128,6 +135,15 @@ export function Library({ store, onSignOut }: { store: SongStore; onSignOut?: ()
       })
     }
   }
+  /** Saves a set and opens it in the set builder. */
+  async function saveSet(name: string, songIds: string[]) {
+    const saved = await createSet(name, songIds)
+    if (saved) {
+      setOpenSetId(saved.id)
+      setView('sets')
+      window.scrollTo({ top: 0 })
+    }
+  }
   const todaysPlay = (songId: string): Play | undefined => {
     const p = last.get(songId)
     return p && isSameDay(p.played_at, now) ? p : undefined
@@ -147,7 +163,7 @@ export function Library({ store, onSignOut }: { store: SongStore; onSignOut?: ()
           <Logo />
           <h1 className="font-display text-5xl leading-none">Reprise</h1>
           <div aria-hidden="true" className="staff mx-2 hidden flex-1 lg:block" />
-          <nav aria-label="Views" className="seg order-last w-full md:order-none md:ml-auto md:w-auto lg:ml-0">
+          <nav aria-label="Views" className="seg seg-nav order-last w-full md:order-none md:ml-auto md:w-auto lg:ml-0">
             {VIEWS.map((v) => (
               <button key={v.id} className="flex-1" aria-current={view === v.id ? 'page' : undefined} onClick={() => setView(v.id)}>
                 {v.label}
@@ -188,6 +204,20 @@ export function Library({ store, onSignOut }: { store: SongStore; onSignOut?: ()
             </div>
           )}
 
+          {view === 'medley' && status === 'ready' && <MedleyView songs={songs} medley={medley} onMedley={setMedley} onSaveSet={saveSet} />}
+
+          {view === 'sets' && status === 'ready' && (
+            <SetsView
+              songs={songs}
+              sets={sets}
+              openSetId={openSetId}
+              onOpenSet={setOpenSetId}
+              onCreate={(name) => saveSet(name, [])}
+              onPatch={updateSet}
+              onDelete={removeSet}
+            />
+          )}
+
           {view === 'revive' && status === 'ready' && (
             <ReviveView songs={songs} plays={plays} onOpen={(s) => setOpenId(s.id)} onPlayed={played} />
           )}
@@ -223,6 +253,19 @@ export function Library({ store, onSignOut }: { store: SongStore; onSignOut?: ()
               </div>
 
               <FilterSummary songs={songs} filters={filters} sort={sort} shown={visible.length} onFilters={setFilters} onSort={onSort} />
+              {hasActiveFilters(filters) && visible.length > 0 && (
+                <button
+                  className="btn self-start"
+                  onClick={() =>
+                    saveSet(
+                      'Untitled set',
+                      visible.filter((s) => !s.pending).map((s) => s.id),
+                    )
+                  }
+                >
+                  Save These {visible.length} as a Set
+                </button>
+              )}
 
               {status === 'ready' && visible.length === 0 && (
                 <div className="flex flex-col items-center gap-3 rounded-2xl border border-line bg-card px-4 py-10 text-center shadow-card">

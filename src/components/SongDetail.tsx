@@ -79,7 +79,7 @@ function KeyPicker({ song, onPatch }: { song: Song; onPatch: (patch: SongPatch) 
 }
 
 /** A text input that saves when you leave it, press Enter, or close the panel. */
-function CommitInput({
+export function CommitInput({
   value,
   onCommit,
   ...rest

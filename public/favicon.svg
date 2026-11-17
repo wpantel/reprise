@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36">
+  <!-- Reprise repeat-sign logo (see Logo in src/components/controls.tsx) on a paper tile so it reads on dark tab bars -->
+  <rect width="36" height="36" rx="8" fill="#f5f5f2" />
+  <g transform="translate(7.6 3.6) scale(0.8)">
+    <circle cx="4" cy="13" r="3.2" fill="#c2213a" />
+    <circle cx="4" cy="23" r="3.2" fill="#2438c9" />
+    <rect x="12" y="2" width="2" height="32" fill="#17171b" />
+    <rect x="18" y="2" width="7" height="32" rx="1" fill="#17171b" />
+  </g>
+</svg>
