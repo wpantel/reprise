@@ -186,3 +186,41 @@ export function Logo({ className = 'h-9 w-auto' }: { className?: string }) {
     </svg>
   )
 }
+
+/** One tap to record a play today; tapping again on the same day undoes it. */
+export function PlayedButton({
+  title,
+  playedToday,
+  lastPlayed,
+  disabled,
+  onToggle,
+}: {
+  title: string
+  playedToday: boolean
+  /** e.g. "3 weeks ago", or null if never played. */
+  lastPlayed: string | null
+  disabled?: boolean
+  onToggle: () => void
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-pressed={playedToday}
+      aria-label={playedToday ? `${title}: played today. Undo` : `Mark ${title} as played today`}
+      title={lastPlayed ? `Last played ${lastPlayed}` : 'Not played yet'}
+      onClick={onToggle}
+      className="group flex h-11 w-11 items-center justify-center md:h-8 md:w-8"
+    >
+      <span
+        className={`flex h-7 w-7 items-center justify-center rounded-full border ${
+          playedToday ? 'border-accent bg-accent text-accent-ink' : 'border-line text-ink-2 group-hover:border-accent group-hover:text-accent'
+        }`}
+      >
+        <svg aria-hidden="true" viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m3.5 8.5 3 3 6-7" />
+        </svg>
+      </span>
+    </button>
+  )
+}

@@ -42,6 +42,14 @@ export interface NewSong {
   artist?: string | null
 }
 
+/** One time a song was played. */
+export interface Play {
+  id: string
+  song_id: string
+  played_at: string
+  felt_rusty: boolean
+}
+
 /** "A:major". The single string form of a key used by pickers and filters. */
 export const keyId = (tonic: Tonic, mode: Mode) => `${tonic}:${mode}`
 export function parseKeyId(id: string): { key_tonic: Tonic | null; key_mode: Mode | null } {

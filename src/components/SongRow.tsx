@@ -1,21 +1,27 @@
 import type { ArrangementType, SongPatch } from '../lib/songs'
 import type { LibrarySong } from '../lib/useSongs'
-import { Dynamics, KeyBadge, KeySelect, RecallSelect, RecallTag } from './controls'
+import { Dynamics, KeyBadge, KeySelect, PlayedButton, RecallSelect, RecallTag } from './controls'
 
 /** Column template shared by the header and every row (desktop only). */
 export const ROW_GRID =
-  'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-4 md:grid-cols-[minmax(0,1fr)_7rem_8rem_7.5rem_minmax(0,9rem)_6rem]'
+  'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-4 md:grid-cols-[minmax(0,1fr)_7rem_8rem_7.5rem_minmax(0,8rem)_3rem_6rem]'
 
 const LINK_TEXT: Record<ArrangementType, string> = { musescore: 'MuseScore', pdf: 'PDF', other: 'Link' }
 
 export function SongRow({
   song,
+  playedToday,
+  lastPlayed,
   onPatch,
   onOpen,
+  onTogglePlayed,
 }: {
   song: LibrarySong
+  playedToday: boolean
+  lastPlayed: string | null
   onPatch: (patch: SongPatch) => void
   onOpen: () => void
+  onTogglePlayed: () => void
 }) {
   const pending = song.pending
   return (
@@ -56,22 +62,26 @@ export function SongRow({
         ))}
       </div>
 
-      {song.arrangement_url && song.arrangement_type ? (
-        <a
-          href={song.arrangement_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={`Open ${LINK_TEXT[song.arrangement_type]} for ${song.title} in a new tab`}
-          className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 text-sm font-medium text-accent hover:underline md:min-h-7 md:justify-start"
-        >
-          <span className="hidden md:inline">{LINK_TEXT[song.arrangement_type]}</span>
-          <svg aria-hidden="true" viewBox="0 0 16 16" className="h-5 w-5 md:h-3.5 md:w-3.5" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M6 3H3v10h10v-3M9 3h4v4M13 3 7.5 8.5" />
-          </svg>
-        </a>
-      ) : (
-        <span />
-      )}
+      {/* On a phone these two share the row's end; on desktop each takes its own column. */}
+      <div className="flex items-center md:contents">
+        <PlayedButton title={song.title} playedToday={playedToday} lastPlayed={lastPlayed} disabled={pending} onToggle={onTogglePlayed} />
+        {song.arrangement_url && song.arrangement_type ? (
+          <a
+            href={song.arrangement_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Open ${LINK_TEXT[song.arrangement_type]} for ${song.title} in a new tab`}
+            className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 text-sm font-medium text-accent hover:underline md:min-h-7 md:justify-start"
+          >
+            <span className="hidden md:inline">{LINK_TEXT[song.arrangement_type]}</span>
+            <svg aria-hidden="true" viewBox="0 0 16 16" className="h-5 w-5 md:h-3.5 md:w-3.5" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 3H3v10h10v-3M9 3h4v4M13 3 7.5 8.5" />
+            </svg>
+          </a>
+        ) : (
+          <span className="hidden md:block" />
+        )}
+      </div>
     </li>
   )
 }
