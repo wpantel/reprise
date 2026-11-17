@@ -1,11 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { NewSong, Song, SongPatch } from './songs'
+import type { NewSong, Play, Song, SongPatch } from './songs'
 
 export interface SongStore {
   list(): Promise<Song[]>
   insert(songs: NewSong[]): Promise<Song[]>
   update(id: string, patch: SongPatch): Promise<Song>
   remove(id: string): Promise<void>
+  listPlays(): Promise<Play[]>
+  addPlay(songId: string, feltRusty: boolean): Promise<Play>
+  removePlay(id: string): Promise<void>
 }
 
 const COLUMNS =
@@ -33,10 +36,40 @@ export function supabaseStore(client: SupabaseClient): SongStore {
       const { error } = await client.from('songs').delete().eq('id', id)
       if (error) throw error
     },
+    async listPlays() {
+      // The API returns at most 1000 rows per request, so read the history in pages.
+      const all: Play[] = []
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await client
+          .from('plays')
+          .select(PLAY_COLUMNS)
+          .order('played_at', { ascending: false })
+          .order('id')
+          .range(from, from + PAGE - 1)
+        if (error) throw error
+        all.push(...(data as Play[]))
+        if (data.length < PAGE) return all
+      }
+    },
+    async addPlay(songId, feltRusty) {
+      const { data, error } = await client.from('plays').insert({ song_id: songId, felt_rusty: feltRusty }).select(PLAY_COLUMNS).single()
+      if (error) throw error
+      return data as Play
+    },
+    async removePlay(id) {
+      const { error } = await client.from('plays').delete().eq('id', id)
+      if (error) throw error
+    },
   }
 }
 
+const PLAY_COLUMNS = 'id,song_id,played_at,felt_rusty'
+const PAGE = 1000
+
 const LOCAL_KEY = 'repertoire.songs.v1'
+const LOCAL_PLAYS_KEY = 'repertoire.plays.v1'
+const readPlays = (): Play[] => JSON.parse(localStorage.getItem(LOCAL_PLAYS_KEY) ?? '[]')
+const writePlays = (plays: Play[]) => localStorage.setItem(LOCAL_PLAYS_KEY, JSON.stringify(plays))
 const read = (): Song[] => JSON.parse(localStorage.getItem(LOCAL_KEY) ?? '[]')
 const write = (songs: Song[]) => localStorage.setItem(LOCAL_KEY, JSON.stringify(songs))
 
@@ -73,5 +106,17 @@ export const localStore: SongStore = {
   },
   async remove(id) {
     write(read().filter((s) => s.id !== id))
+    writePlays(readPlays().filter((p) => p.song_id !== id))
+  },
+  async listPlays() {
+    return readPlays()
+  },
+  async addPlay(songId, feltRusty) {
+    const play: Play = { id: crypto.randomUUID(), song_id: songId, played_at: new Date().toISOString(), felt_rusty: feltRusty }
+    writePlays([...readPlays(), play])
+    return play
+  },
+  async removePlay(id) {
+    writePlays(readPlays().filter((p) => p.id !== id))
   },
 }

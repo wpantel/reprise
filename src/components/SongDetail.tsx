@@ -8,9 +8,11 @@ import {
   tonicLabel,
   type ArrangementType,
   type Mode,
+  type Play,
   type Song,
   type SongPatch,
 } from '../lib/songs'
+import { agoLabel, daysSince, isSameDay } from '../lib/history'
 import { playKey } from '../lib/sound'
 import { Dynamics, KeyBadge, RecallSelect } from './controls'
 import { Modal } from './Modal'
@@ -114,12 +116,19 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 export function SongDetail({
   song,
+  plays,
   allTags,
+  onPlayed,
+  onUndoPlay,
   onPatch,
   onDelete,
   onClose,
 }: {
   song: Song
+  /** This song's plays, in any order. */
+  plays: Play[]
+  onPlayed: (feltRusty: boolean) => void
+  onUndoPlay: (play: Play) => void
   allTags: string[]
   onPatch: (patch: SongPatch) => void
   onDelete: () => void
@@ -129,6 +138,9 @@ export function SongDetail({
   const [tagDraft, setTagDraft] = useState('')
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const tagListId = useId()
+  const now = new Date()
+  const last = plays.reduce<Play | null>((a, b) => (!a || b.played_at > a.played_at ? b : a), null)
+  const playedToday = last && isSameDay(last.played_at, now)
 
   function commitUrl(raw: string) {
     setUrlError(false)
@@ -155,6 +167,33 @@ export function SongDetail({
       </div>
 
       <div className="flex flex-col gap-4 p-4">
+        <section aria-label="Playing" className="flex flex-col gap-2 rounded-xl bg-bg p-3">
+          <p className="text-sm" role="status">
+            {last ? (
+              <>
+                Last played <strong className="font-semibold">{agoLabel(daysSince(last.played_at, now))}</strong>
+                {last.felt_rusty && ', felt rusty'} · {plays.length} {plays.length === 1 ? 'play' : 'plays'}
+              </>
+            ) : (
+              'Not played yet.'
+            )}
+          </p>
+          {playedToday ? (
+            <button className="btn self-start" onClick={() => onUndoPlay(last)}>
+              Undo Today’s Play
+            </button>
+          ) : (
+            <div className="flex gap-2">
+              <button className="btn btn-primary flex-1" onClick={() => onPlayed(false)}>
+                Played
+              </button>
+              <button className="btn flex-1" onClick={() => onPlayed(true)}>
+                Felt Rusty
+              </button>
+            </div>
+          )}
+        </section>
+
         <Field label="Title">
           <CommitInput value={song.title} onCommit={(d) => (d.trim() ? onPatch({ title: d.trim() }) : false)} />
         </Field>
