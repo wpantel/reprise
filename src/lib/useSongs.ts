@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { NewSong, Song, SongPatch } from './songs'
+import type { NewSong, Play, Song, SongPatch } from './songs'
 import type { SongStore } from './store'
 
 /** A song as shown in the library; `pending` until its first save completes. */
@@ -7,15 +7,17 @@ export type LibrarySong = Song & { pending?: boolean }
 
 export function useSongs(store: SongStore, onError: (message: string) => void) {
   const [songs, setSongs] = useState<LibrarySong[]>([])
+  const [plays, setPlays] = useState<Play[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const songsRef = useRef(songs)
   songsRef.current = songs
 
   const load = useCallback(() => {
     setStatus('loading')
-    store.list().then(
-      (list) => {
+    Promise.all([store.list(), store.listPlays()]).then(
+      ([list, history]) => {
         setSongs(list)
+        setPlays(history)
         setStatus('ready')
       },
       () => setStatus('error'),
@@ -79,6 +81,7 @@ export function useSongs(store: SongStore, onError: (message: string) => void) {
       setSongs((cur) => cur.filter((s) => s.id !== id))
       try {
         await store.remove(id)
+        setPlays((cur) => cur.filter((p) => p.song_id !== id))
       } catch {
         setSongs((cur) => [...cur, before])
         onError(`Couldn’t delete “${before.title}”. Check your connection and try again.`)
@@ -87,5 +90,36 @@ export function useSongs(store: SongStore, onError: (message: string) => void) {
     [store, onError],
   )
 
-  return { songs, status, reload: load, add, update, remove }
+  /** Records that a song was played now. Resolves to the saved play, or null if it couldn't be saved. */
+  const logPlay = useCallback(
+    async (songId: string, feltRusty: boolean): Promise<Play | null> => {
+      const temp: Play = { id: `pending-${Date.now()}`, song_id: songId, played_at: new Date().toISOString(), felt_rusty: feltRusty }
+      setPlays((cur) => [...cur, temp])
+      try {
+        const saved = await store.addPlay(songId, feltRusty)
+        setPlays((cur) => cur.map((p) => (p.id === temp.id ? saved : p)))
+        return saved
+      } catch {
+        setPlays((cur) => cur.filter((p) => p.id !== temp.id))
+        onError('Couldn’t save that play. Check your connection and try again.')
+        return null
+      }
+    },
+    [store, onError],
+  )
+
+  const removePlay = useCallback(
+    async (play: Play) => {
+      setPlays((cur) => cur.filter((p) => p.id !== play.id))
+      try {
+        await store.removePlay(play.id)
+      } catch {
+        setPlays((cur) => [...cur, play])
+        onError('Couldn’t undo that play. Check your connection and try again.')
+      }
+    },
+    [store, onError],
+  )
+
+  return { songs, plays, status, reload: load, add, update, remove, logPlay, removePlay }
 }
