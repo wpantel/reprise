@@ -3,6 +3,7 @@ import { detectArrangementType, normalizeUrl } from './arrangement'
 import { flagDuplicates, parseBulk } from './bulk'
 import { EMPTY_FILTERS, matches, NO_SCORE, NONE, sortSongs } from './filters'
 import { agoLabel, analytics, recentlyPlayed, reviveGroups } from './history'
+import { EMPTY_MEDLEY, medleySongs, moved, shuffled, swapCandidates } from './medley'
 import { keyHue, keyLabel, parseKeyId, spellings, type Play, type Song } from './songs'
 
 const song = (over: Partial<Song>): Song => ({
@@ -163,5 +164,41 @@ describe('play history', () => {
   })
   it('words elapsed time plainly', () => {
     expect([0, 1, 9, 21, 95].map(agoLabel)).toEqual(['today', 'yesterday', '9 days ago', '3 weeks ago', '3 months ago'])
+  })
+})
+
+describe('medley and sets', () => {
+  const aMaj1 = song({ title: 'Alpha', key_tonic: 'A', key_mode: 'major', recall: 'memorized' })
+  const aMaj2 = song({ title: 'Bravo', key_tonic: 'A', key_mode: 'major', recall: 'by_ear' })
+  const aMaj3 = song({ title: 'Charlie', key_tonic: 'A', key_mode: 'major', recall: 'with_score' })
+  const aMin = song({ title: 'Delta', key_tonic: 'A', key_mode: 'minor', recall: 'memorized' })
+  const dMaj = song({ title: 'Echo', key_tonic: 'D', key_mode: 'major' })
+  const all = [dMaj, aMin, aMaj3, aMaj2, aMaj1]
+  const titles = (list: Song[]) => list.map((s) => s.title)
+
+  it('lists nothing until a key is picked', () => {
+    expect(medleySongs(all, EMPTY_MEDLEY)).toEqual([])
+  })
+  it('lists songs in the key, alphabetically, narrowed by mode and recall', () => {
+    expect(titles(medleySongs(all, { ...EMPTY_MEDLEY, pc: 9 }))).toEqual(['Alpha', 'Bravo', 'Charlie', 'Delta'])
+    expect(titles(medleySongs(all, { ...EMPTY_MEDLEY, pc: 9, mode: 'major' }))).toEqual(['Alpha', 'Bravo', 'Charlie'])
+    expect(titles(medleySongs(all, { ...EMPTY_MEDLEY, pc: 9, recall: 'memorized' }))).toEqual(['Alpha', 'Delta'])
+  })
+  it('puts pinned songs first, then follows the shuffle', () => {
+    const m = { ...EMPTY_MEDLEY, pc: 9, mode: 'major' as const, order: ['Charlie', 'Bravo', 'Alpha'], pins: ['Alpha'] }
+    expect(titles(medleySongs(all, m))).toEqual(['Alpha', 'Charlie', 'Bravo'])
+  })
+  it('shuffles without losing songs', () => {
+    expect(shuffled([1, 2, 3, 4], () => 0).sort()).toEqual([1, 2, 3, 4])
+    expect(shuffled([1, 2, 3, 4], () => 0)).not.toEqual([1, 2, 3, 4])
+  })
+  it('reorders a set', () => {
+    expect(moved(['a', 'b', 'c', 'd'], 0, 2)).toEqual(['b', 'c', 'a', 'd'])
+    expect(moved(['a', 'b', 'c', 'd'], 3, 0)).toEqual(['d', 'a', 'b', 'c'])
+    expect(moved(['a', 'b'], 0, 9)).toEqual(['b', 'a'])
+  })
+  it('offers swaps in the same key and mode that are not already in the set', () => {
+    expect(titles(swapCandidates(aMaj1, all, ['Alpha', 'Bravo']))).toEqual(['Charlie'])
+    expect(swapCandidates(song({ title: 'No key' }), all, [])).toEqual([])
   })
 })

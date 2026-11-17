@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { NewSong, Play, Song, SongPatch } from './songs'
+import type { NewSong, Play, SetPatch, Song, SongPatch, SongSet } from './songs'
 
 export interface SongStore {
   list(): Promise<Song[]>
@@ -9,6 +9,10 @@ export interface SongStore {
   listPlays(): Promise<Play[]>
   addPlay(songId: string, feltRusty: boolean): Promise<Play>
   removePlay(id: string): Promise<void>
+  listSets(): Promise<SongSet[]>
+  createSet(name: string, songIds: string[]): Promise<SongSet>
+  updateSet(id: string, patch: SetPatch): Promise<void>
+  removeSet(id: string): Promise<void>
 }
 
 const COLUMNS =
@@ -60,16 +64,38 @@ export function supabaseStore(client: SupabaseClient): SongStore {
       const { error } = await client.from('plays').delete().eq('id', id)
       if (error) throw error
     },
+    async listSets() {
+      const { data, error } = await client.from('sets').select(SET_COLUMNS).order('created_at')
+      if (error) throw error
+      return data as SongSet[]
+    },
+    async createSet(name, songIds) {
+      const { data, error } = await client.from('sets').insert({ name, song_ids: songIds }).select(SET_COLUMNS).single()
+      if (error) throw error
+      return data as SongSet
+    },
+    async updateSet(id, patch) {
+      const { error } = await client.from('sets').update(patch).eq('id', id)
+      if (error) throw error
+    },
+    async removeSet(id) {
+      const { error } = await client.from('sets').delete().eq('id', id)
+      if (error) throw error
+    },
   }
 }
 
 const PLAY_COLUMNS = 'id,song_id,played_at,felt_rusty'
+const SET_COLUMNS = 'id,name,song_ids,created_at'
 const PAGE = 1000
 
 const LOCAL_KEY = 'repertoire.songs.v1'
 const LOCAL_PLAYS_KEY = 'repertoire.plays.v1'
 const readPlays = (): Play[] => JSON.parse(localStorage.getItem(LOCAL_PLAYS_KEY) ?? '[]')
 const writePlays = (plays: Play[]) => localStorage.setItem(LOCAL_PLAYS_KEY, JSON.stringify(plays))
+const LOCAL_SETS_KEY = 'repertoire.sets.v1'
+const readSets = (): SongSet[] => JSON.parse(localStorage.getItem(LOCAL_SETS_KEY) ?? '[]')
+const writeSets = (sets: SongSet[]) => localStorage.setItem(LOCAL_SETS_KEY, JSON.stringify(sets))
 const read = (): Song[] => JSON.parse(localStorage.getItem(LOCAL_KEY) ?? '[]')
 const write = (songs: Song[]) => localStorage.setItem(LOCAL_KEY, JSON.stringify(songs))
 
@@ -118,5 +144,19 @@ export const localStore: SongStore = {
   },
   async removePlay(id) {
     writePlays(readPlays().filter((p) => p.id !== id))
+  },
+  async listSets() {
+    return readSets()
+  },
+  async createSet(name, songIds) {
+    const set: SongSet = { id: crypto.randomUUID(), name, song_ids: songIds, created_at: new Date().toISOString() }
+    writeSets([...readSets(), set])
+    return set
+  },
+  async updateSet(id, patch) {
+    writeSets(readSets().map((s) => (s.id === id ? { ...s, ...patch } : s)))
+  },
+  async removeSet(id) {
+    writeSets(readSets().filter((s) => s.id !== id))
   },
 }
