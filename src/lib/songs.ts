@@ -50,6 +50,15 @@ export interface Play {
   felt_rusty: boolean
 }
 
+/** A named, ordered list of songs. Ids of deleted songs may linger and are skipped when shown. */
+export interface SongSet {
+  id: string
+  name: string
+  song_ids: string[]
+  created_at: string
+}
+export type SetPatch = Partial<Pick<SongSet, 'name' | 'song_ids'>>
+
 /** "A:major". The single string form of a key used by pickers and filters. */
 export const keyId = (tonic: Tonic, mode: Mode) => `${tonic}:${mode}`
 export function parseKeyId(id: string): { key_tonic: Tonic | null; key_mode: Mode | null } {
