@@ -1,51 +1,56 @@
 import {
+  DYNAMICS,
   keyId,
   keyLabel,
   MAJOR_TONICS,
   MINOR_TONICS,
   parseKeyId,
+  pitchClass,
   RECALLS,
+  recallLabel,
   songKeyId,
   type Recall,
   type Song,
   type SongPatch,
 } from '../lib/songs'
+import { hueStyle } from './Piano'
 
-/** The key badge: filled for major, outlined for minor, dashed when unset. */
-export function keyBadgeClass(song: Pick<Song, 'key_tonic' | 'key_mode'>) {
-  const base = 'inline-flex h-7 items-center rounded-md px-2 text-sm font-semibold whitespace-nowrap'
-  if (!song.key_tonic) return `${base} border border-dashed border-line font-normal text-ink-2`
-  if (song.key_mode === 'major') return `${base} border border-transparent bg-accent-soft text-accent`
-  return `${base} border border-accent text-accent`
+type Keyed = Pick<Song, 'key_tonic' | 'key_mode'>
+
+/** Colour comes from the tonic; the shape (filled or outlined) from the mode. */
+function badgeProps(song: Keyed) {
+  if (!song.key_tonic) return { className: 'keybadge keybadge-none' }
+  return { className: `keybadge keybadge-${song.key_mode}`, style: hueStyle(pitchClass(song.key_tonic)) }
 }
 
-export function KeyBadge({ song }: { song: Pick<Song, 'key_tonic' | 'key_mode'> }) {
+export function KeyBadge({ song }: { song: Keyed }) {
   const id = songKeyId(song)
-  return <span className={keyBadgeClass(song)}>{id ? keyLabel(id) : 'No key'}</span>
+  return <span {...badgeProps(song)}>{id ? keyLabel(id) : 'No key'}</span>
 }
 
+/** The key badge as an in-place picker (desktop rows). */
 export function KeySelect({
   song,
   label,
-  variant,
   disabled,
   onChange,
 }: {
-  song: Pick<Song, 'key_tonic' | 'key_mode'>
+  song: Keyed
   label: string
-  variant: 'badge' | 'field'
   disabled?: boolean
   onChange: (patch: SongPatch) => void
 }) {
+  const badge = badgeProps(song)
   return (
     <select
       aria-label={label}
       disabled={disabled}
       value={songKeyId(song) ?? ''}
       onChange={(e) => onChange(parseKeyId(e.target.value))}
-      className={variant === 'badge' ? `${keyBadgeClass(song)} appearance-none hover:border-accent` : 'field'}
+      className={`${badge.className} appearance-none`}
+      style={badge.style}
     >
-      <option value="">{variant === 'badge' ? 'No key' : 'Not set'}</option>
+      <option value="">No key</option>
       <optgroup label="Major">
         {MAJOR_TONICS.map((t) => (
           <option key={t} value={keyId(t, 'major')}>
@@ -64,6 +69,33 @@ export function KeySelect({
   )
 }
 
+const RECALL_ICON: Record<Recall, { path: string; className: string }> = {
+  // By heart.
+  memorized: { path: 'M8 13.5S2.5 10 2.5 6.2A3 3 0 0 1 8 4.6a3 3 0 0 1 5.5 1.6C13.5 10 8 13.5 8 13.5Z', className: 'text-felt' },
+  // A page of music.
+  with_score: { path: 'M4 2.5h8v11H4zM6 5.5h4M6 8h4M6 10.5h4', className: 'text-accent' },
+  // Sound.
+  by_ear: { path: 'M3 6.5v3M6 4v8M9 2.5v11M12 5.5v5', className: 'text-brass' },
+}
+
+export function RecallIcon({ recall }: { recall: Recall }) {
+  const icon = RECALL_ICON[recall]
+  return (
+    <svg aria-hidden="true" viewBox="0 0 16 16" className={`h-4 w-4 shrink-0 ${icon.className}`} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d={icon.path} />
+    </svg>
+  )
+}
+
+export function RecallTag({ recall }: { recall: Recall }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-ink-2">
+      <RecallIcon recall={recall} />
+      {recallLabel(recall)}
+    </span>
+  )
+}
+
 export function RecallSelect({
   value,
   label,
@@ -77,7 +109,7 @@ export function RecallSelect({
   disabled?: boolean
   onChange: (patch: SongPatch) => void
 }) {
-  return (
+  const select = (
     <select
       aria-label={label}
       disabled={disabled}
@@ -85,11 +117,11 @@ export function RecallSelect({
       onChange={(e) => onChange({ recall: (e.target.value || null) as Recall | null })}
       className={
         variant === 'inline'
-          ? `h-7 appearance-none rounded-md border border-transparent px-1.5 text-sm hover:border-line ${value ? '' : 'text-ink-2'}`
+          ? `h-7 min-w-0 appearance-none rounded-md border border-transparent px-1 text-sm hover:border-line ${value ? '' : 'text-ink-2'}`
           : 'field'
       }
     >
-      <option value="">{variant === 'inline' ? 'Not set' : 'Not set'}</option>
+      <option value="">Not set</option>
       {RECALLS.map((r) => (
         <option key={r.value} value={r.value}>
           {r.label}
@@ -97,10 +129,17 @@ export function RecallSelect({
       ))}
     </select>
   )
+  if (variant === 'field') return select
+  return (
+    <span className="flex items-center gap-0.5">
+      {value ? <RecallIcon recall={value} /> : <span className="w-4" />}
+      {select}
+    </span>
+  )
 }
 
-/** Five dots. Selecting the current rating again clears it. */
-export function ConfidenceDots({
+/** Confidence as dynamics, pp to ff. Choosing the current marking again clears it. */
+export function Dynamics({
   value,
   title,
   size,
@@ -113,27 +152,37 @@ export function ConfidenceDots({
   disabled?: boolean
   onChange: (patch: SongPatch) => void
 }) {
-  const hit = size === 'sm' ? 'h-7 w-5' : 'h-11 w-11'
-  const dot = size === 'sm' ? 'h-2.5 w-2.5' : 'h-4 w-4'
+  const shape = size === 'sm' ? 'h-7 w-6 text-[1.0625rem]' : 'h-11 w-11 text-2xl'
   return (
-    <div role="group" aria-label={`Confidence for ${title}: ${value ? `${value} of 5` : 'not set'}`} className="flex">
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button
-          key={n}
-          type="button"
-          disabled={disabled}
-          aria-pressed={value === n}
-          aria-label={value === n ? `Clear confidence (now ${n})` : `Set confidence to ${n}`}
-          onClick={() => onChange({ confidence: value === n ? null : n })}
-          className={`group flex items-center justify-center rounded-md ${hit}`}
-        >
-          <span
-            className={`rounded-full border ${dot} ${
-              value !== null && n <= value ? 'border-accent bg-accent' : 'border-ink-2 group-hover:border-accent'
-            }`}
-          />
-        </button>
-      ))}
+    <div role="group" aria-label={`Confidence for ${title}: ${value ? `${value} of 5` : 'not set'}`} className="dyn">
+      {DYNAMICS.map((mark, i) => {
+        const n = i + 1
+        return (
+          <button
+            key={n}
+            type="button"
+            disabled={disabled}
+            aria-pressed={value === n}
+            aria-label={value === n ? `Clear confidence (now ${n} of 5, ${mark})` : `Set confidence to ${n} of 5 (${mark})`}
+            onClick={() => onChange({ confidence: value === n ? null : n })}
+            className={shape}
+          >
+            {mark}
+          </button>
+        )
+      })}
     </div>
+  )
+}
+
+/** The repeat sign that gives Reprise its name. */
+export function Logo({ className = 'h-9 w-auto' }: { className?: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 26 36" className={className}>
+      <circle cx="4" cy="13" r="3.2" fill="var(--felt)" />
+      <circle cx="4" cy="23" r="3.2" fill="var(--klein)" />
+      <rect x="12" y="2" width="2" height="32" fill="var(--ebony)" />
+      <rect x="18" y="2" width="7" height="32" rx="1" fill="var(--ebony)" />
+    </svg>
   )
 }

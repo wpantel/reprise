@@ -22,7 +22,7 @@ export function QuickAdd({ inputRef, onAdd }: { inputRef: Ref<HTMLInputElement>;
       <form onSubmit={submit} className="flex gap-2">
         <input
           ref={inputRef}
-          className="field"
+          className="field md:min-h-11 md:text-base"
           aria-label="Add a song by title"
           aria-keyshortcuts="n"
           placeholder="Add a song title, then press Enter"
@@ -31,7 +31,7 @@ export function QuickAdd({ inputRef, onAdd }: { inputRef: Ref<HTMLInputElement>;
           value={value}
           onChange={(e) => setValue(e.target.value)}
         />
-        <button className="btn btn-primary" disabled={!value.trim()}>
+        <button className="btn btn-primary md:min-h-11 md:px-5" disabled={!value.trim()}>
           Add
         </button>
       </form>

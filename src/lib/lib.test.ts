@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { detectArrangementType, normalizeUrl } from './arrangement'
 import { flagDuplicates, parseBulk } from './bulk'
 import { EMPTY_FILTERS, matches, NONE, sortSongs } from './filters'
-import { keyLabel, parseKeyId, type Song } from './songs'
+import { keyHue, keyLabel, parseKeyId, spellings, type Song } from './songs'
 
 const song = (over: Partial<Song>): Song => ({
   id: over.title ?? 'x',
@@ -41,6 +41,15 @@ describe('keys', () => {
     expect(keyLabel('Bb:major')).toBe('B♭ major')
     expect(keyLabel('F#:minor')).toBe('F♯ minor')
   })
+  it('spells black keys the common way first, per mode', () => {
+    expect(spellings(1, 'major')).toEqual(['Db', 'C#'])
+    expect(spellings(1, 'minor')).toEqual(['C#'])
+    expect(spellings(8, 'minor')).toEqual(['G#', 'Ab'])
+    expect(spellings(9, 'major')).toEqual(['A'])
+  })
+  it('gives all twelve keys distinct hues', () => {
+    expect(new Set(Array.from({ length: 12 }, (_, pc) => keyHue(pc))).size).toBe(12)
+  })
 })
 
 describe('bulk add', () => {
@@ -74,12 +83,18 @@ describe('filters', () => {
   const c = song({ title: 'Für Elise' })
 
   it('filters by key, including missing key', () => {
-    expect([a, b, c].filter((s) => matches(s, { ...EMPTY_FILTERS, key: 'A:major' }))).toEqual([b])
-    expect([a, b, c].filter((s) => matches(s, { ...EMPTY_FILTERS, key: NONE }))).toEqual([c])
+    expect([a, b, c].filter((s) => matches(s, { ...EMPTY_FILTERS, pc: 9, mode: 'major' }))).toEqual([b])
+    expect([a, b, c].filter((s) => matches(s, { ...EMPTY_FILTERS, pc: 9, mode: 'minor' }))).toEqual([])
+    expect([a, b, c].filter((s) => matches(s, { ...EMPTY_FILTERS, pc: NONE }))).toEqual([c])
+    expect([a, b, c].filter((s) => matches(s, { ...EMPTY_FILTERS, mode: 'major' }))).toEqual([a, b])
+  })
+  it('treats enharmonic spellings as the same piano key', () => {
+    const cSharp = song({ title: 'x', key_tonic: 'C#', key_mode: 'major' })
+    expect([a, cSharp].filter((s) => matches(s, { ...EMPTY_FILTERS, pc: 1 }))).toEqual([a, cSharp])
   })
   it('combines key and recall', () => {
-    expect(matches(b, { ...EMPTY_FILTERS, key: 'A:major', recall: 'by_ear' })).toBe(true)
-    expect(matches(b, { ...EMPTY_FILTERS, key: 'A:major', recall: 'memorized' })).toBe(false)
+    expect(matches(b, { ...EMPTY_FILTERS, pc: 9, mode: 'major', recall: 'by_ear' })).toBe(true)
+    expect(matches(b, { ...EMPTY_FILTERS, pc: 9, mode: 'major', recall: 'memorized' })).toBe(false)
     expect(matches(c, { ...EMPTY_FILTERS, recall: NONE })).toBe(true)
   })
   it('filters by confidence and requires every tag', () => {
