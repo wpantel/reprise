@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { detectArrangementType, normalizeUrl } from './arrangement'
 import { flagDuplicates, parseBulk } from './bulk'
-import { EMPTY_FILTERS, matches, NONE, sortSongs } from './filters'
-import { keyHue, keyLabel, parseKeyId, spellings, type Song } from './songs'
+import { EMPTY_FILTERS, matches, NO_SCORE, NONE, sortSongs } from './filters'
+import { agoLabel, analytics, recentlyPlayed, reviveGroups } from './history'
+import { keyHue, keyLabel, parseKeyId, spellings, type Play, type Song } from './songs'
 
 const song = (over: Partial<Song>): Song => ({
   id: over.title ?? 'x',
@@ -111,5 +112,56 @@ describe('filters', () => {
   })
   it('sorts by key in pitch order with missing keys last', () => {
     expect(sortSongs([c, a, b], 'key').map((s) => s.title)).toEqual([a.title, b.title, c.title])
+  })
+})
+
+describe('play history', () => {
+  const now = new Date('2026-11-17T12:00:00Z')
+  const daysAgo = (n: number) => new Date(now.getTime() - n * 86_400_000).toISOString()
+  const play = (song_id: string, n: number, felt_rusty = false): Play => ({ id: `${song_id}-${n}`, song_id, played_at: daysAgo(n), felt_rusty })
+
+  const confident = song({ title: 'Confident', confidence: 5, recall: 'memorized', key_tonic: 'A', key_mode: 'minor' })
+  const shaky = song({ title: 'Shaky', confidence: 2, recall: 'with_score', key_tonic: 'A', key_mode: 'minor' })
+  const rusty = song({ title: 'Rusty', confidence: 2, recall: 'by_ear', key_tonic: 'C', key_mode: 'major' })
+  const fresh = song({ title: 'Fresh', confidence: 5 })
+  const never = song({ title: 'Never', confidence: 4 })
+  const songs = [confident, shaky, rusty, fresh, never]
+  const plays = [play('Confident', 90), play('Confident', 45), play('Shaky', 200), play('Rusty', 9, true), play('Fresh', 3)]
+
+  it('revives confident songs after a month and rusty ones after a week', () => {
+    const { due } = reviveGroups(songs, plays, now)
+    expect(due.map((d) => [d.song.title, d.days])).toEqual([
+      ['Confident', 45],
+      ['Rusty', 9],
+    ])
+  })
+  it('does not call a rusty song due once it has been played again', () => {
+    const { due } = reviveGroups([rusty], [play('Rusty', 9, true), play('Rusty', 1)], now)
+    expect(due).toEqual([])
+  })
+  it('keeps never-played songs in their own group', () => {
+    const { due, unplayed } = reviveGroups(songs, plays, now)
+    expect(unplayed.map((s) => s.title)).toEqual(['Never'])
+    expect(due.some((d) => d.song.title === 'Never')).toBe(false)
+    expect(reviveGroups(songs, [], now)).toMatchObject({ due: [] })
+    expect(reviveGroups(songs, [], now).unplayed).toHaveLength(5)
+  })
+  it('summarises the library', () => {
+    const a = analytics(songs, plays, now)
+    expect(a).toMatchObject({ total: 5, withoutScore: 2, noKey: 2, playedRecently: 2 })
+    expect(a.byRecall).toEqual({ memorized: 1, with_score: 1, by_ear: 1, none: 2 })
+    expect(a.byKey).toEqual([
+      { id: 'C:major', count: 1 },
+      { id: 'A:minor', count: 2 },
+    ])
+  })
+  it('filters by played recently and by playable without a score', () => {
+    const recent = recentlyPlayed(plays, now)
+    expect(songs.filter((s) => matches(s, { ...EMPTY_FILTERS, played: 'recent' }, recent)).map((s) => s.title)).toEqual(['Rusty', 'Fresh'])
+    expect(songs.filter((s) => matches(s, { ...EMPTY_FILTERS, played: 'stale' }, recent)).map((s) => s.title)).toEqual(['Confident', 'Shaky', 'Never'])
+    expect(songs.filter((s) => matches(s, { ...EMPTY_FILTERS, recall: NO_SCORE })).map((s) => s.title)).toEqual(['Confident', 'Rusty'])
+  })
+  it('words elapsed time plainly', () => {
+    expect([0, 1, 9, 21, 95].map(agoLabel)).toEqual(['today', 'yesterday', '9 days ago', '3 weeks ago', '3 months ago'])
   })
 })

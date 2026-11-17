@@ -1,6 +1,6 @@
 import { useState, type Ref } from 'react'
-import { EMPTY_FILTERS, hasActiveFilters, NONE, type Filters, type Sort } from '../lib/filters'
-import { DYNAMICS, PITCH_NAMES, pitchClass, recallLabel, RECALLS, type Mode, type Recall, type Song } from '../lib/songs'
+import { EMPTY_FILTERS, hasActiveFilters, NO_SCORE, NONE, type Filters, type Sort } from '../lib/filters'
+import { DYNAMICS, PITCH_NAMES, pitchClass, recallLabel, RECALLS, type Mode, type Song } from '../lib/songs'
 import { playKey, setSoundOn, soundOn } from '../lib/sound'
 import { hueStyle, Piano } from './Piano'
 
@@ -28,7 +28,7 @@ export function FilterControls({ songs, filters, searchRef, onFilters }: FilterP
         aria-label="Filter by recall"
         className={selectClass}
         value={filters.recall ?? ''}
-        onChange={(e) => set({ recall: (e.target.value || null) as Recall | typeof NONE | null })}
+        onChange={(e) => set({ recall: (e.target.value || null) as Filters['recall'] })}
       >
         <option value="">Any recall</option>
         {RECALLS.map((r) => (
@@ -36,6 +36,7 @@ export function FilterControls({ songs, filters, searchRef, onFilters }: FilterP
             {r.label}
           </option>
         ))}
+        <option value={NO_SCORE}>Without a score</option>
         <option value={NONE}>Not set</option>
       </select>
       <select
@@ -169,12 +170,17 @@ export function FilterSummary({
     })
   else if (filters.mode) chips.push({ label: `Any ${filters.mode} key`, clear: () => set({ mode: null }) })
   if (filters.recall)
-    chips.push({ label: filters.recall === NONE ? 'Recall not set' : recallLabel(filters.recall), clear: () => set({ recall: null }) })
+    chips.push({
+      label: filters.recall === NONE ? 'Recall not set' : filters.recall === NO_SCORE ? 'Without a score' : recallLabel(filters.recall),
+      clear: () => set({ recall: null }),
+    })
   if (filters.confidence)
     chips.push({
       label: filters.confidence === NONE ? 'Confidence not set' : `Confidence ${filters.confidence} (${DYNAMICS[filters.confidence - 1]})`,
       clear: () => set({ confidence: null }),
     })
+  if (filters.played)
+    chips.push({ label: filters.played === 'recent' ? 'Played in the last 30 days' : 'Not played in 30 days', clear: () => set({ played: null }) })
   for (const t of filters.tags) chips.push({ label: `#${t}`, clear: () => set({ tags: filters.tags.filter((x) => x !== t) }) })
 
   return (
