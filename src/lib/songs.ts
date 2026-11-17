@@ -65,3 +65,26 @@ export function keyOrder(id: string | null) {
   const [tonic, mode] = id.split(':')
   return TONICS.indexOf(tonic as Tonic) * 2 + (mode === 'minor' ? 1 : 0)
 }
+
+const PITCH_CLASS: Record<Tonic, number> = {
+  C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11,
+}
+/** 0 for C through 11 for B. Enharmonic spellings share a pitch class. */
+export const pitchClass = (t: Tonic) => PITCH_CLASS[t]
+export const PITCH_NAMES = ['C', 'C♯/D♭', 'D', 'D♯/E♭', 'E', 'F', 'F♯/G♭', 'G', 'G♯/A♭', 'A', 'A♯/B♭', 'B']
+
+const PREFERRED: Record<Mode, Tonic[]> = {
+  major: ['Db', 'Eb', 'F#', 'Ab', 'Bb'],
+  minor: ['C#', 'Eb', 'F#', 'G#', 'Bb'],
+}
+/** Ways to spell a piano key as a tonic in this mode, most common first. */
+export function spellings(pc: number, mode: Mode): Tonic[] {
+  const all = (mode === 'major' ? MAJOR_TONICS : MINOR_TONICS).filter((t) => pitchClass(t) === pc)
+  return all.sort((a, b) => Number(PREFERRED[mode].includes(b)) - Number(PREFERRED[mode].includes(a)))
+}
+
+/** Each key gets a hue by its place on the circle of fifths, so neighbouring keys look related. */
+export const keyHue = (pc: number) => (25 + ((pc * 7) % 12) * 30) % 360
+
+/** Confidence 1 to 5, written as dynamics. */
+export const DYNAMICS = ['pp', 'p', 'mf', 'f', 'ff']

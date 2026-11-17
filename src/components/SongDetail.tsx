@@ -1,8 +1,80 @@
 import { useEffect, useId, useRef, useState, type InputHTMLAttributes } from 'react'
 import { detectArrangementType, normalizeUrl } from '../lib/arrangement'
-import { ARRANGEMENT_TYPES, type ArrangementType, type Song, type SongPatch } from '../lib/songs'
-import { ConfidenceDots, KeySelect, RecallSelect } from './controls'
+import {
+  ARRANGEMENT_TYPES,
+  PITCH_NAMES,
+  pitchClass,
+  spellings,
+  tonicLabel,
+  type ArrangementType,
+  type Mode,
+  type Song,
+  type SongPatch,
+} from '../lib/songs'
+import { playKey } from '../lib/sound'
+import { Dynamics, KeyBadge, RecallSelect } from './controls'
 import { Modal } from './Modal'
+import { Piano } from './Piano'
+
+/** Pick a key by pressing it on the keyboard, then choose major or minor. */
+function KeyPicker({ song, onPatch }: { song: Song; onPatch: (patch: SongPatch) => void }) {
+  const [mode, setMode] = useState<Mode>(song.key_mode ?? 'major')
+  const pc = song.key_tonic ? pitchClass(song.key_tonic) : null
+  const options = pc === null ? [] : spellings(pc, mode)
+
+  function choose(nextPc: number, nextMode: Mode) {
+    const names = spellings(nextPc, nextMode)
+    const tonic = song.key_tonic && names.includes(song.key_tonic) ? song.key_tonic : names[0]
+    onPatch({ key_tonic: tonic, key_mode: nextMode })
+    playKey(nextPc, nextMode)
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-auto text-sm font-medium">Key I play it in</span>
+        <KeyBadge song={song} />
+      </div>
+      <Piano
+        label="Choose the key by its tonic"
+        selected={pc}
+        describe={(p) => `${PITCH_NAMES[p]}${p === pc ? ', selected' : ''}`}
+        onPress={(p) => choose(p, mode)}
+      />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="seg" role="group" aria-label="Major or minor">
+          {(['major', 'minor'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              aria-pressed={mode === m}
+              onClick={() => {
+                setMode(m)
+                if (pc !== null) choose(pc, m)
+              }}
+            >
+              {m === 'major' ? 'Major' : 'Minor'}
+            </button>
+          ))}
+        </div>
+        {options.length > 1 && (
+          <div className="seg" role="group" aria-label="Spelling">
+            {options.map((t) => (
+              <button key={t} type="button" aria-pressed={song.key_tonic === t} onClick={() => onPatch({ key_tonic: t, key_mode: mode })}>
+                {tonicLabel(t)}
+              </button>
+            ))}
+          </div>
+        )}
+        {pc !== null && (
+          <button type="button" className="ml-auto min-h-9 px-1 text-sm text-ink-2 underline" onClick={() => onPatch({ key_tonic: null, key_mode: null })}>
+            Clear key
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
 
 /** A text input that saves when you leave it, press Enter, or close the panel. */
 function CommitInput({
@@ -75,8 +147,8 @@ export function SongDetail({
 
   return (
     <Modal label={`Details for ${song.title}`} shape="panel" onClose={onClose}>
-      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-line bg-bg px-4 py-3">
-        <h2 className="min-w-0 truncate text-lg font-semibold">{song.title}</h2>
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-line bg-card px-4 py-3">
+        <h2 className="min-w-0 truncate font-display text-3xl leading-tight">{song.title}</h2>
         <button className="btn btn-primary" onClick={onClose}>
           Done
         </button>
@@ -90,21 +162,21 @@ export function SongDetail({
           <CommitInput value={song.artist ?? ''} onCommit={(d) => onPatch({ artist: d.trim() || null })} />
         </Field>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Key I play it in">
-            <KeySelect song={song} label="Key I play it in" variant="field" onChange={onPatch} />
-          </Field>
-          <Field label="Recall">
-            <RecallSelect value={song.recall} label="Recall" variant="field" onChange={onPatch} />
-          </Field>
-        </div>
+        <KeyPicker song={song} onPatch={onPatch} />
+
+        <Field label="Recall">
+          <RecallSelect value={song.recall} label="Recall" variant="field" onChange={onPatch} />
+        </Field>
 
         <div className="flex flex-col gap-1">
           <span className="text-sm font-medium">Confidence</span>
-          <div className="-ml-3">
-            <ConfidenceDots value={song.confidence} title={song.title} size="lg" onChange={onPatch} />
+          <div className="-ml-2">
+            <Dynamics value={song.confidence} title={song.title} size="lg" onChange={onPatch} />
           </div>
-          <p className="text-xs text-ink-2">1 is “I can get through it”. 5 is “I’d play it for someone right now”.</p>
+          <p className="text-xs text-ink-2">
+            From <i className="font-display text-sm">pp</i>, “I can get through it”, to <i className="font-display text-sm">ff</i>, “I’d play it for
+            someone right now”.
+          </p>
         </div>
 
         <fieldset className="flex flex-col gap-3 border-t border-line pt-4">

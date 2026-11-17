@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useState, type FormEvent } from 'react'
+import { Logo } from './controls'
 
 export function AuthScreen({ client }: { client: SupabaseClient }) {
   const [mode, setMode] = useState<'in' | 'up'>('in')
@@ -28,8 +29,11 @@ export function AuthScreen({ client }: { client: SupabaseClient }) {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-4 py-10">
-      <h1 className="text-2xl font-semibold">Reprise</h1>
-      <p className="mt-1 text-ink-2">{mode === 'in' ? 'Sign in to your library.' : 'Create an account for your library.'}</p>
+      <h1 className="flex items-center gap-3 font-display text-6xl leading-none">
+        <Logo className="h-12 w-auto" />
+        Reprise
+      </h1>
+      <p className="mt-3 text-ink-2">{mode === 'in' ? 'Sign in to your library.' : 'Create an account for your library.'}</p>
       <form onSubmit={submit} className="mt-6 flex flex-col gap-4">
         <label className="flex flex-col gap-1 text-sm font-medium">
           Email

@@ -45,7 +45,7 @@ export function BulkAdd({
   return (
     <Modal label="Bulk add songs" shape="center" onClose={onClose}>
       <div className="flex items-center justify-between border-b border-line px-4 py-3">
-        <h2 className="text-lg font-semibold">{reviewing ? 'Review Songs' : 'Bulk Add'}</h2>
+        <h2 className="font-display text-3xl leading-tight">{reviewing ? 'Review Songs' : 'Bulk Add'}</h2>
         <button className="btn" onClick={onClose}>
           Cancel
         </button>

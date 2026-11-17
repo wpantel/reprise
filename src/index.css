@@ -1,39 +1,54 @@
 @import "tailwindcss";
 
+/* ── 1. Primitives: raw values, named for the piano they come from ── */
 :root {
-  color-scheme: light dark;
-  --bg: #ffffff;
-  --surface: #f4f6f5;
-  --line: #dfe3e1;
-  --ink: #17191a;
-  --ink-2: #565d59;
-  --accent: #2a5a4c;
-  --accent-soft: #e2efea;
-  --accent-ink: #ffffff;
-  --danger: #b3261e;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #131514;
-    --surface: #1c1f1e;
-    --line: #313634;
-    --ink: #eceeed;
-    --ink-2: #a6ada9;
-    --accent: #8fd0ba;
-    --accent-soft: #1d3830;
-    --accent-ink: #0e1a16;
-    --danger: #f28b82;
-  }
+  color-scheme: light;
+  --ebony: #17171b; /* black keys */
+  --graphite: #55565e;
+  --ivory: #ffffff; /* white keys */
+  --paper: #f5f5f2;
+  --paper-deep: #ecebe6;
+  --hairline: #dddcd6;
+  --klein: #2438c9; /* ultramarine */
+  --klein-soft: #e7eafc;
+  --felt: #c2213a; /* damper felt red */
+  --felt-soft: #fbe9ec;
+  --brass: #8a6410; /* pedals */
+  --brass-soft: #f6edd6;
+
+  /* ── 2. Semantic: what each colour is for ── */
+  --bg: var(--paper);
+  --card: var(--ivory);
+  --surface: var(--paper-deep);
+  --line: var(--hairline);
+  --ink: var(--ebony);
+  --ink-2: var(--graphite);
+  --accent: var(--klein);
+  --accent-soft: var(--klein-soft);
+  --accent-ink: var(--ivory);
+  --danger: var(--felt);
+
+  /* ── 3. Component tokens ── */
+  --btn-primary-bg: var(--ebony);
+  --btn-primary-ink: var(--ivory);
+  --pkey-white: var(--ivory);
+  --pkey-black: var(--ebony);
+  --pkey-border: #c9c8c1;
+  --staff-line: #c9c8c1;
+  --radius: 0.625rem;
+  --shadow-card: 0 1px 2px rgb(23 23 27 / 0.05), 0 6px 20px -8px rgb(23 23 27 / 0.12);
 }
 @media (prefers-contrast: more) {
   :root {
-    --line: var(--ink-2);
-    --ink-2: var(--ink);
+    --line: var(--graphite);
+    --ink-2: var(--ebony);
+    --pkey-border: var(--ebony);
   }
 }
 
 @theme inline {
   --color-bg: var(--bg);
+  --color-card: var(--card);
   --color-surface: var(--surface);
   --color-line: var(--line);
   --color-ink: var(--ink);
@@ -42,7 +57,13 @@
   --color-accent-soft: var(--accent-soft);
   --color-accent-ink: var(--accent-ink);
   --color-danger: var(--danger);
-  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --color-felt: var(--felt);
+  --color-felt-soft: var(--felt-soft);
+  --color-brass: var(--brass);
+  --color-brass-soft: var(--brass-soft);
+  --font-sans: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+  --shadow-card: var(--shadow-card);
 }
 
 body {
@@ -68,23 +89,26 @@ select:disabled {
   opacity: 0.5;
 }
 
-/* Shared control shapes. Inputs are 16px on phones so iOS doesn't zoom on focus. */
+/* ── Controls. Inputs are 16px on phones so iOS doesn't zoom on focus. ── */
 @utility field {
   width: 100%;
   min-height: 2.75rem;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--line);
-  border-radius: 0.5rem;
-  background: var(--bg);
+  border-radius: var(--radius);
+  background: var(--card);
   color: var(--ink);
   font-size: 1rem;
   @variant md {
-    min-height: 2.25rem;
+    min-height: 2.375rem;
     padding: 0.375rem 0.625rem;
     font-size: 0.875rem;
   }
   &::placeholder {
     color: var(--ink-2);
+  }
+  &:hover {
+    border-color: var(--graphite);
   }
 }
 @utility btn {
@@ -95,30 +119,261 @@ select:disabled {
   min-height: 2.75rem;
   padding: 0 0.875rem;
   border: 1px solid var(--line);
-  border-radius: 0.5rem;
-  background: var(--bg);
+  border-radius: var(--radius);
+  background: var(--card);
   color: var(--ink);
   font-size: 0.9375rem;
   font-weight: 500;
   white-space: nowrap;
   @variant md {
-    min-height: 2.25rem;
+    min-height: 2.375rem;
     font-size: 0.875rem;
   }
   &:hover:not(:disabled) {
     background: var(--surface);
   }
 }
+/* Menus draw their own arrow so it sits a fixed distance inside the box. */
+select.field {
+  appearance: none;
+  padding-right: 2.25rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%2355565e' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m2.5 4.5 3.5 3.5 3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 0.75rem;
+  text-overflow: ellipsis;
+}
+
+/* The primary button is a black key: dark, with a lip that dips when pressed. */
 @utility btn-primary {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--accent-ink);
+  border-color: var(--btn-primary-bg);
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-ink);
+  box-shadow: inset 0 -3px 0 rgb(255 255 255 / 0.16);
   &:hover:not(:disabled) {
-    background: var(--accent);
-    filter: brightness(1.1);
+    background: #2b2b33;
+  }
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+    box-shadow: inset 0 -1px 0 rgb(255 255 255 / 0.16);
   }
 }
 @utility btn-danger {
   border-color: var(--danger);
   color: var(--danger);
+}
+
+/* Key colours: one hue per key, set as --kh on the element, in four strengths.
+   Declared here (not on :root) because they must resolve where --kh is set. */
+.hue,
+.keybadge,
+.pkey,
+.pkey-black,
+.spectrum span {
+  --key-tint: oklch(0.93 0.055 var(--kh, 0));
+  --key-mid: oklch(0.84 0.1 var(--kh, 0));
+  --key-solid: oklch(0.56 0.15 var(--kh, 0));
+  --key-ink: oklch(0.36 0.1 var(--kh, 0));
+}
+
+/* ── Header art ── */
+/* Five staff lines, 7px apart. */
+.staff {
+  height: 29px;
+  background-image: repeating-linear-gradient(to bottom, var(--staff-line) 0 1px, transparent 1px 7px);
+}
+/* The twelve key colours in circle-of-fifths order. */
+.spectrum {
+  display: flex;
+  height: 5px;
+}
+.spectrum span {
+  flex: 1;
+  background: var(--key-solid);
+}
+
+/* ── Key badge: filled for major, outlined for minor, dashed when unset ── */
+.keybadge {
+  display: inline-flex;
+  align-items: center;
+  height: 1.75rem;
+  padding: 0 0.5rem;
+  border: 1.5px solid transparent;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--key-ink);
+}
+.keybadge-major {
+  background: var(--key-tint);
+}
+.keybadge-minor {
+  background: var(--card);
+  border-color: var(--key-solid);
+}
+.keybadge-none {
+  border: 1px dashed var(--pkey-border);
+  color: var(--ink-2);
+  font-weight: 400;
+}
+select.keybadge:hover {
+  border-color: var(--key-solid);
+}
+select.keybadge-none:hover {
+  border-color: var(--graphite);
+}
+
+/* ── Piano ── */
+.piano {
+  position: relative;
+  display: flex;
+  gap: 2px;
+  height: 7.5rem;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.pkey {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 0.5rem;
+  overflow: hidden;
+  border: 1px solid var(--pkey-border);
+  border-radius: 0 0 0.5rem 0.5rem;
+  background: var(--pkey-white);
+  box-shadow: inset 0 -4px 0 rgb(23 23 27 / 0.08);
+  font-size: 0.8125rem;
+  line-height: 1.15;
+  transition:
+    transform 80ms ease-out,
+    box-shadow 80ms ease-out;
+}
+.pkey:hover {
+  background: var(--key-tint);
+}
+.pkey:active,
+.pkey-black:active {
+  transform: translateY(2px);
+}
+.pkey:active {
+  box-shadow: inset 0 -1px 0 rgb(23 23 27 / 0.08);
+}
+.pkey[aria-pressed='true'] {
+  border-color: var(--key-solid);
+  background: var(--key-tint);
+  box-shadow: inset 0 -4px 0 var(--key-solid);
+}
+.pkey:focus-visible,
+.pkey-black:focus-visible {
+  z-index: 3;
+}
+/* A column that rises with the number of songs in that key. */
+.pkey-fill {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  background: var(--key-mid);
+}
+.pkey-count,
+.pkey-name {
+  position: relative;
+  color: var(--ink);
+}
+.pkey-count {
+  font-weight: 600;
+}
+.pkey-name {
+  color: var(--ink-2);
+}
+.pkey-black {
+  position: absolute;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  width: 9%;
+  height: 62%;
+  padding-bottom: 0.25rem;
+  border-bottom: 5px solid #3a3a44;
+  border-radius: 0 0 0.375rem 0.375rem;
+  background: var(--pkey-black);
+  color: var(--ivory);
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: transform 80ms ease-out;
+}
+.pkey-black.has-songs {
+  border-bottom-color: var(--key-mid);
+}
+.pkey-black:hover {
+  background: #2b2b33;
+}
+.pkey-black[aria-pressed='true'] {
+  /* Darker than --key-solid so the white count stays above 4.5:1 in every hue. */
+  background: oklch(0.46 0.14 var(--kh));
+  border-bottom-color: var(--key-ink);
+}
+
+/* ── Segmented control ── */
+.seg {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.seg button {
+  min-height: 2.25rem;
+  padding: 0 0.75rem;
+  border-radius: calc(var(--radius) - 2px);
+  color: var(--ink-2);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+@media (min-width: 48rem) {
+  .seg button {
+    min-height: 1.875rem;
+  }
+}
+.seg button[aria-pressed='true'] {
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgb(23 23 27 / 0.14);
+}
+
+/* ── Dynamics: confidence written as pp … ff ── */
+.dyn {
+  display: inline-flex;
+}
+.dyn button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-family: var(--font-display);
+  font-style: italic;
+  line-height: 1;
+}
+.dyn button:hover:not(:disabled) {
+  background: var(--surface);
+  color: var(--ink);
+}
+.dyn button[aria-pressed='true'] {
+  background: var(--ebony);
+  color: var(--ivory);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pkey,
+  .pkey-black,
+  .btn-primary {
+    transition: none;
+    transform: none !important;
+  }
 }
