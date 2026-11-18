@@ -17,7 +17,11 @@ export function AuthScreen({ client }: { client: SupabaseClient }) {
       const { error } = await client.auth.signInWithPassword({ email, password })
       if (error) setMessage({ kind: 'error', text: error.message })
     } else {
-      const { data, error } = await client.auth.signUp({ email, password })
+      const { data, error } = await client.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: window.location.origin },
+      })
       if (error) setMessage({ kind: 'error', text: error.message })
       else if (!data.session) {
         setMode('in')
