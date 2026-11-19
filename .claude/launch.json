@@ -1,12 +1,47 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "dev", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 5173 },
+    {
+      "name": "dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "port": 5173
+    },
     {
       "name": "dev-local",
       "runtimeExecutable": "env",
-      "runtimeArgs": ["VITE_SUPABASE_URL=", "npm", "run", "dev", "--", "--port", "5174", "--strictPort"],
+      "runtimeArgs": [
+        "VITE_SUPABASE_URL=",
+        "npm",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5174",
+        "--strictPort"
+      ],
       "port": 5174
+    },
+    {
+      "name": "preview",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "npm run build && npx vite preview --port 4173 --strictPort"
+      ],
+      "port": 4173
+    },
+    {
+      "name": "preview-local",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "VITE_SUPABASE_URL= npx vite build --outDir dist-local && npx vite preview --outDir dist-local --port 4174 --strictPort"
+      ],
+      "port": 4174
     }
   ]
 }
