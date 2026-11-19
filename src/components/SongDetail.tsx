@@ -213,8 +213,8 @@ export function SongDetail({
             <Dynamics value={song.confidence} title={song.title} size="lg" onChange={onPatch} />
           </div>
           <p className="text-xs text-ink-2">
-            From <i className="font-display text-sm">pp</i>, “I can get through it”, to <i className="font-display text-sm">ff</i>, “I’d play it for
-            someone right now”.
+            From <i className="font-display text-sm">pp</i>, “still learning”, to <i className="font-display text-sm">ff</i>,
+            “performance-ready”.
           </p>
         </div>
 
