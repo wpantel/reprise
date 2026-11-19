@@ -4,7 +4,7 @@ import { flagDuplicates, parseBulk } from './bulk'
 import { EMPTY_FILTERS, matches, NO_SCORE, NONE, sortSongs } from './filters'
 import { agoLabel, analytics, recentlyPlayed, reviveGroups } from './history'
 import { EMPTY_MEDLEY, medleySongs, moved, shuffled, swapCandidates } from './medley'
-import { splitArtistTag } from './text'
+import { parseConfidence, parseKey, parseTags } from './tags'
 import { keyHue, keyLabel, parseKeyId, spellings, type Play, type Song } from './songs'
 
 const song = (over: Partial<Song>): Song => ({
@@ -204,19 +204,48 @@ describe('medley and sets', () => {
   })
 })
 
-describe('artist tag in titles', () => {
-  it('splits a trailing artist: onto the artist field', () => {
-    expect(splitArtistTag('somesongnameXXX No. 3 artist: Franz Liszt')).toEqual({ title: 'somesongnameXXX No. 3', artist: 'Franz Liszt' })
-    expect(splitArtistTag('Clair de Lune ARTIST:Debussy')).toEqual({ title: 'Clair de Lune', artist: 'Debussy' })
-    expect(splitArtistTag('somesongnameXXX No. 3artist: Franz Liszt')).toEqual({ title: 'somesongnameXXX No. 3', artist: 'Franz Liszt' })
-    expect(splitArtistTag('Nocturneartist :  Chopin ')).toEqual({ title: 'Nocturne', artist: 'Chopin' })
+describe('tags in typed titles', () => {
+  it('splits artist: off the title, with or without a space before it', () => {
+    expect(parseTags('somesongnameXXX No. 3 artist: Franz Liszt')).toEqual({ title: 'somesongnameXXX No. 3', artist: 'Franz Liszt' })
+    expect(parseTags('Clair de Lune ARTIST:Debussy')).toEqual({ title: 'Clair de Lune', artist: 'Debussy' })
+    expect(parseTags('somesongnameXXX No. 3artist: Franz Liszt')).toEqual({ title: 'somesongnameXXX No. 3', artist: 'Franz Liszt' })
   })
-  it('leaves titles without a usable tag alone', () => {
-    expect(splitArtistTag('Liebestraum No. 3')).toEqual({ title: 'Liebestraum No. 3', artist: null })
-    expect(splitArtistTag('Song artist:')).toEqual({ title: 'Song artist:', artist: null })
-    expect(splitArtistTag('artist: Liszt')).toEqual({ title: 'artist: Liszt', artist: null })
+  it('reads key and confidence tags in any order', () => {
+    const want = { title: 'Liebestraum No. 3', artist: 'Franz Liszt', key_tonic: 'Ab', key_mode: 'major', confidence: 3 }
+    expect(parseTags('Liebestraum No. 3 artist: Franz Liszt key: A flat major confidence: mf')).toEqual(want)
+    expect(parseTags('Liebestraum No. 3 confidence: MF key: Ab major artist: Franz Liszt')).toEqual(want)
+    expect(parseTags('Liebestraum No. 3, key: A flat major, artist: Franz Liszt, confidence: mf')).toEqual(want)
+    expect(parseTags('Gymnopédie No. 1 key: D major')).toEqual({ title: 'Gymnopédie No. 1', artist: null, key_tonic: 'D', key_mode: 'major' })
+    expect(parseTags('Prelude confidence: pp')).toEqual({ title: 'Prelude', artist: null, confidence: 1 })
   })
-  it('works in bulk add', () => {
+  it('leaves tags it can’t read in the title', () => {
+    expect(parseTags('Liebestraum No. 3')).toEqual({ title: 'Liebestraum No. 3', artist: null })
+    expect(parseTags('Song artist:')).toEqual({ title: 'Song artist:', artist: null })
+    expect(parseTags('artist: Liszt')).toEqual({ title: 'artist: Liszt', artist: null })
+    expect(parseTags('Song key: H major artist: X')).toEqual({ title: 'Song key: H major', artist: 'X' })
+    expect(parseTags('Song confidence: mp')).toEqual({ title: 'Song confidence: mp', artist: null })
+    expect(parseTags('Whiskey: A Love Story')).toEqual({ title: 'Whiskey: A Love Story', artist: null })
+  })
+  it('reads keys written many ways', () => {
+    expect(parseKey('A major')).toEqual({ key_tonic: 'A', key_mode: 'major' })
+    expect(parseKey('a flat major')).toEqual({ key_tonic: 'Ab', key_mode: 'major' })
+    expect(parseKey('B-flat minor')).toEqual({ key_tonic: 'Bb', key_mode: 'minor' })
+    expect(parseKey('F♯ min')).toEqual({ key_tonic: 'F#', key_mode: 'minor' })
+    expect(parseKey('c#m')).toEqual({ key_tonic: 'C#', key_mode: 'minor' })
+    expect(parseKey('Eb')).toEqual({ key_tonic: 'Eb', key_mode: 'major' })
+    expect(parseKey('A# major')).toEqual({ key_tonic: 'Bb', key_mode: 'major' })
+    expect(parseKey('Cb major')).toEqual({ key_tonic: 'B', key_mode: 'major' })
+    expect(parseKey('H major')).toBeNull()
+    expect(parseKey('A Love Story')).toBeNull()
+  })
+  it('reads confidence only as pp, p, mf, f or ff', () => {
+    expect(['pp', 'P', 'mf', 'F', 'FF'].map(parseConfidence)).toEqual([1, 2, 3, 4, 5])
+    expect(['mp', 'fff', '3', ''].map(parseConfidence)).toEqual([null, null, null, null])
+  })
+  it('works in bulk add, alongside "Title - Artist"', () => {
     expect(parseBulk('Nocturne artist: Chopin', false)).toEqual([{ title: 'Nocturne', artist: 'Chopin' }])
+    expect(parseBulk('Nocturne - Chopin key: C# minor', true)).toEqual([
+      { title: 'Nocturne', artist: 'Chopin', key_tonic: 'C#', key_mode: 'minor' },
+    ])
   })
 })

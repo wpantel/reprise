@@ -1,0 +1,73 @@
+import { DYNAMICS, MAJOR_TONICS, MINOR_TONICS, spellings, type Mode, type NewSong, type Tonic } from './songs'
+
+const LETTER_PC: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 }
+
+/**
+ * Reads a key like "A major", "A flat major", "Bb minor", "F♯ min", "c#m" or just "D" (major).
+ * Spellings the picker doesn't offer for that mode (e.g. "A# major") become the usual enharmonic ("Bb major").
+ */
+export function parseKey(text: string): { key_tonic: Tonic; key_mode: Mode } | null {
+  const m = text
+    .trim()
+    .replace(/\.+$/, '')
+    .toLowerCase()
+    .match(/^([a-g])\s*(#|♯|b|♭|-?\s*sharp|-?\s*flat)?\s*(major|maj|minor|min|m)?$/)
+  if (!m) return null
+  const [, letter, acc = '', modeWord = 'major'] = m
+  const shift = /#|♯|sharp/.test(acc) ? 1 : /b|♭|flat/.test(acc) ? -1 : 0
+  const mode: Mode = modeWord.startsWith('maj') ? 'major' : 'minor'
+  const typed = `${letter.toUpperCase()}${shift === 1 ? '#' : shift === -1 ? 'b' : ''}`
+  const offered = mode === 'major' ? MAJOR_TONICS : MINOR_TONICS
+  if ((offered as string[]).includes(typed)) return { key_tonic: typed as Tonic, key_mode: mode }
+  const pc = (LETTER_PC[letter] + shift + 12) % 12
+  return { key_tonic: spellings(pc, mode)[0], key_mode: mode }
+}
+
+/** "pp" to "ff" (any case) as confidence 1 to 5. */
+export function parseConfidence(text: string): number | null {
+  const i = DYNAMICS.indexOf(text.trim().replace(/\.+$/, '').toLowerCase())
+  return i < 0 ? null : i + 1
+}
+
+export type ParsedSong = Required<Pick<NewSong, 'title'>> &
+  Pick<NewSong, 'artist' | 'key_tonic' | 'key_mode' | 'confidence'>
+
+/**
+ * Pulls "artist:", "key:" and "confidence:" tags off a typed title, in any order, e.g.
+ * "Liebestraum No. 3 key: A flat major artist: Franz Liszt confidence: mf".
+ * Tag names are case-insensitive and need no space before them. A tag whose value
+ * isn't understood (an empty artist, "key: H major", "confidence: loud") stays in the text.
+ */
+export function parseTags(input: string): ParsedSong {
+  const text = input.trim()
+  const found = [...text.matchAll(/(artist|key|confidence)\s*:/gi)]
+  // Each tag's value runs to the next tag, or the end.
+  const tags = found.map((m, i) => ({
+    name: m[1].toLowerCase(),
+    start: m.index!,
+    valueStart: m.index! + m[0].length,
+    end: found[i + 1]?.index ?? text.length,
+  }))
+
+  const song: Omit<ParsedSong, 'title'> = {}
+  const kept: typeof tags = []
+  for (const tag of tags) {
+    const value = text.slice(tag.valueStart, tag.end).trim().replace(/[\s,;|]+$/, '')
+    if (tag.name === 'artist' && value) song.artist = value
+    else if (tag.name === 'key' && parseKey(value)) Object.assign(song, parseKey(value))
+    else if (tag.name === 'confidence' && parseConfidence(value)) song.confidence = parseConfidence(value)
+    else continue
+    kept.push(tag)
+  }
+
+  // Everything that isn't a recognised tag is the title. A rejected tag's text stays where it was.
+  let title = ''
+  let from = 0
+  for (const tag of kept) {
+    title += text.slice(from, tag.start) + ' '
+    from = tag.end
+  }
+  title = (title + text.slice(from)).replace(/\s+/g, ' ').trim().replace(/[\s,;|]+$/, '')
+  if (!title) return { title: text, artist: null }
+  return { title, artist: null, ...song }
+}
