@@ -1,12 +1,88 @@
 import { useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent } from 'react'
+import { smoothOrder, transition, type Distance, type Transition } from '../lib/keyflow'
 import { moved, swapCandidates } from '../lib/medley'
-import { keyLabel, songKeyId, type SetPatch, type Song, type SongSet } from '../lib/songs'
+import { playKey } from '../lib/sound'
+import { keyLabel, pitchClass, songKeyId, type SetPatch, type Song, type SongSet } from '../lib/songs'
 import { fold } from '../lib/text'
 import { KeyBadge } from './controls'
 import { CommitInput } from './SongDetail'
 import { StandView } from './StandView'
 
 const songsWord = (n: number) => `${n} ${n === 1 ? 'song' : 'songs'}`
+
+const DISTANCE_STYLE: Record<Distance, { dot: string; word: string }> = {
+  close: { dot: 'bg-accent', word: 'smooth' },
+  moderate: { dot: 'bg-brass', word: 'noticeable' },
+  distant: { dot: 'bg-felt', word: 'a leap' },
+  unknown: { dot: 'border border-ink-2', word: 'unknown' },
+}
+
+/** Plays one key's chord, then the next, so you can hear the change. */
+function hearChange(from: Song, to: Song) {
+  if (!from.key_tonic || !to.key_tonic) return
+  const [a, b] = [pitchClass(from.key_tonic), pitchClass(to.key_tonic)]
+  playKey(a, from.key_mode)
+  setTimeout(() => playKey(b, to.key_mode), 650)
+}
+
+/** The key change from the song above to this one, shown between the two rows. */
+function ChangeLine({ from, to, change }: { from: Song; to: Song; change: Transition }) {
+  const style = DISTANCE_STYLE[change.distance]
+  const content = (
+    <>
+      <span aria-hidden="true" className={`inline-block h-2 w-2 shrink-0 rounded-full ${style.dot}`} />
+      <span>{change.label}</span>
+      {change.distance !== 'unknown' && <span className="text-ink-2">· {style.word}</span>}
+    </>
+  )
+  const keyed = from.key_tonic && to.key_tonic
+  return (
+    <div className="-mt-0.5 flex pb-0.5 pl-[4.75rem] text-xs text-ink-2">
+      {keyed ? (
+        <button
+          type="button"
+          className="flex items-center gap-1.5 rounded px-1 py-0.5 text-ink hover:bg-surface"
+          aria-label={`${change.label}, ${style.word}. Play ${keyLabel(songKeyId(from)!)} then ${keyLabel(songKeyId(to)!)}`}
+          onClick={() => hearChange(from, to)}
+        >
+          {content}
+        </button>
+      ) : (
+        <span className="flex items-center gap-1.5 px-1 py-0.5">{content}</span>
+      )}
+    </div>
+  )
+}
+
+/** A count of each kind of key change in the set, and a button to reorder for smoother ones. */
+function KeyFlowBar({ songs, ids, onReorder }: { songs: Song[]; ids: string[]; onReorder: (ids: string[], before: string[]) => void }) {
+  const changes = songs.slice(1).map((s, i) => transition(songs[i], s))
+  const counts = (['close', 'moderate', 'distant', 'unknown'] as Distance[])
+    .map((d) => [d, changes.filter((c) => c.distance === d).length] as const)
+    .filter(([, n]) => n > 0)
+  const order = smoothOrder(songs)
+  const canSmooth = order.some((j, i) => j !== i)
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+      <span className="font-medium">Key changes</span>
+      <span className="flex flex-wrap gap-x-3 gap-y-1 text-ink-2">
+        {counts.map(([d, n]) => (
+          <span key={d} className="flex items-center gap-1.5">
+            <span aria-hidden="true" className={`inline-block h-2 w-2 rounded-full ${DISTANCE_STYLE[d].dot}`} />
+            {n} {DISTANCE_STYLE[d].word}
+          </span>
+        ))}
+      </span>
+      {canSmooth ? (
+        <button className="btn ml-auto" onClick={() => onReorder(order.map((j) => ids[j]), ids)}>
+          Smooth Key Changes
+        </button>
+      ) : (
+        songs.length > 3 && <span className="ml-auto text-ink-2">Already as smooth as it gets</span>
+      )}
+    </div>
+  )
+}
 
 function SetList({ sets, songsById, onOpen, onCreate }: { sets: SongSet[]; songsById: Map<string, Song>; onOpen: (id: string) => void; onCreate: (name: string) => void }) {
   const [name, setName] = useState('')
@@ -80,6 +156,8 @@ function SetEditor({
   const [query, setQuery] = useState('')
   const [playing, setPlaying] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  /** The order before the last smoothing, offered for undo while the set is still in the smoothed order. */
+  const [smoothed, setSmoothed] = useState<{ before: string[]; after: string[] } | null>(null)
   const listRef = useRef<HTMLOListElement>(null)
   const ids = draft ?? saved
   const idsRef = useRef(ids)
@@ -136,6 +214,31 @@ function SetEditor({
         </button>
       </div>
 
+      {inSet.length >= 2 && (
+        <KeyFlowBar
+          songs={inSet}
+          ids={ids}
+          onReorder={(after, before) => {
+            onPatch({ song_ids: after })
+            setSmoothed({ before, after })
+          }}
+        />
+      )}
+      {smoothed && smoothed.after.join() === saved.join() && (
+        <p role="status" className="flex flex-wrap items-center gap-2 text-sm">
+          Reordered for smoother key changes. The first and last songs stayed put.
+          <button
+            className="btn"
+            onClick={() => {
+              onPatch({ song_ids: smoothed.before })
+              setSmoothed(null)
+            }}
+          >
+            Undo
+          </button>
+        </p>
+      )}
+
       {inSet.length === 0 ? (
         <p className="rounded-2xl border border-line bg-card px-4 py-8 text-center text-ink-2 shadow-card">This set is empty. Search below to add songs.</p>
       ) : (
@@ -145,6 +248,7 @@ function SetEditor({
             const keyId = songKeyId(song)
             return (
               <li key={song.id} className={`border-b border-line last:border-b-0 ${dragging === song.id ? 'dragging' : ''}`}>
+                {i > 0 && <ChangeLine from={inSet[i - 1]} to={song} change={transition(inSet[i - 1], song)} />}
                 <div className="flex flex-wrap items-center gap-2 py-1.5 pr-3 pl-1">
                   <button
                     type="button"
