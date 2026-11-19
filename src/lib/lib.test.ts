@@ -4,6 +4,7 @@ import { flagDuplicates, parseBulk } from './bulk'
 import { EMPTY_FILTERS, matches, NO_SCORE, NONE, sortSongs } from './filters'
 import { agoLabel, analytics, daysSince, recentlyPlayed, reviveGroups } from './history'
 import { EMPTY_MEDLEY, medleySongs, moved, shuffled, swapCandidates } from './medley'
+import { smoothOrder, transition, transitions } from './keyflow'
 import { isNetworkError, isQueued, newQueuedPlay, offlineCache } from './offline'
 import { parseConfidence, parseKey, parseTags } from './tags'
 import { keyHue, keyLabel, parseKeyId, spellings, type Play, type Song } from './songs'
@@ -324,5 +325,67 @@ describe('offline copy', () => {
     expect(isNetworkError(new TypeError('Failed to fetch'), true)).toBe(true)
     expect(isNetworkError({ message: 'TypeError: Load failed' }, true)).toBe(true)
     expect(isNetworkError({ message: 'new row violates row-level security policy', code: '42501' }, true)).toBe(false)
+  })
+})
+
+describe('key flow in sets', () => {
+  const k = (key: string) => {
+    const [t, m] = key.split(' ')
+    return song({ title: key, key_tonic: t as Song['key_tonic'], key_mode: (m ?? 'major') as Song['key_mode'] })
+  }
+  const label = (a: string, b: string) => transition(k(a), k(b)).label
+
+  it('names the change between two keys', () => {
+    expect(label('C', 'C')).toBe('Same key')
+    expect(label('C', 'A minor')).toBe('Relative minor')
+    expect(label('G minor', 'Bb')).toBe('Relative major')
+    expect(label('C', 'C minor')).toBe('Parallel minor')
+    expect(label('C', 'G')).toBe('Down a 4th')
+    expect(label('C', 'F')).toBe('Up a 4th')
+    expect(label('Eb', 'E')).toBe('Up a half step')
+    expect(label('C', 'F#')).toBe('A tritone away')
+    expect(label('C', 'D minor')).toBe('Up a whole step, to minor')
+    expect(transition(k('C'), song({ title: 'none' })).label).toBe('No key set')
+  })
+
+  it('rates closeness by key signature, treating enharmonic keys as one', () => {
+    expect(transition(k('C'), k('G')).distance).toBe('close')
+    expect(transition(k('C'), k('A minor')).distance).toBe('close')
+    expect(transition(k('C'), k('D')).distance).toBe('moderate')
+    expect(transition(k('C'), k('Db')).distance).toBe('distant')
+    expect(transition(k('F#'), k('Gb')).label).toBe('Same key')
+    expect(transition(k('C'), song({ title: 'none' })).distance).toBe('unknown')
+  })
+
+  it('lists one change per neighbouring pair', () => {
+    expect(transitions([k('C'), k('G'), k('D')]).map((t) => t.label)).toEqual(['Down a 4th', 'Down a 4th'])
+    expect(transitions([k('C')])).toEqual([])
+  })
+
+  it('reorders the middle of a set to smooth the key changes, keeping opener and closer', () => {
+    const set = [k('C'), k('E'), k('G'), k('B'), k('D'), k('F')]
+    const order = smoothOrder(set)
+    expect(order[0]).toBe(0)
+    expect(order.at(-1)).toBe(5)
+    expect([...order].sort()).toEqual([0, 1, 2, 3, 4, 5])
+    const cost = (o: number[]) => transitions(o.map((i) => set[i])).reduce((s, t) => s + t.cost, 0)
+    expect(cost(order)).toBeLessThan(cost([0, 1, 2, 3, 4, 5]))
+    // Best possible: C G D, then E and B in either order, then F (11 steps round the circle of fifths).
+    expect(cost(order)).toBe(11)
+    expect(order.slice(0, 3).map((i) => set[i].title)).toEqual(['C', 'G', 'D'])
+  })
+
+  it('leaves a set alone when nothing would be smoother', () => {
+    expect(smoothOrder([k('C'), k('G'), k('D'), k('A')])).toEqual([0, 1, 2, 3])
+    expect(smoothOrder([k('C'), k('Db'), k('D')])).toEqual([0, 1, 2])
+  })
+
+  it('handles long sets without trying every order', () => {
+    const keys = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
+    const set = [...keys, ...keys].map((t) => k(t))
+    const order = smoothOrder(set)
+    expect(new Set(order).size).toBe(set.length)
+    const cost = (o: number[]) => transitions(o.map((i) => set[i])).reduce((s, t) => s + t.cost, 0)
+    expect(cost(order)).toBeLessThan(cost(set.map((_, i) => i)) / 2)
   })
 })
