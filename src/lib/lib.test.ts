@@ -4,6 +4,7 @@ import { flagDuplicates, parseBulk } from './bulk'
 import { EMPTY_FILTERS, matches, NO_SCORE, NONE, sortSongs } from './filters'
 import { agoLabel, analytics, recentlyPlayed, reviveGroups } from './history'
 import { EMPTY_MEDLEY, medleySongs, moved, shuffled, swapCandidates } from './medley'
+import { splitArtistTag } from './text'
 import { keyHue, keyLabel, parseKeyId, spellings, type Play, type Song } from './songs'
 
 const song = (over: Partial<Song>): Song => ({
@@ -200,5 +201,22 @@ describe('medley and sets', () => {
   it('offers swaps in the same key and mode that are not already in the set', () => {
     expect(titles(swapCandidates(aMaj1, all, ['Alpha', 'Bravo']))).toEqual(['Charlie'])
     expect(swapCandidates(song({ title: 'No key' }), all, [])).toEqual([])
+  })
+})
+
+describe('artist tag in titles', () => {
+  it('splits a trailing artist: onto the artist field', () => {
+    expect(splitArtistTag('somesongnameXXX No. 3 artist: Franz Liszt')).toEqual({ title: 'somesongnameXXX No. 3', artist: 'Franz Liszt' })
+    expect(splitArtistTag('Clair de Lune ARTIST:Debussy')).toEqual({ title: 'Clair de Lune', artist: 'Debussy' })
+    expect(splitArtistTag('somesongnameXXX No. 3artist: Franz Liszt')).toEqual({ title: 'somesongnameXXX No. 3', artist: 'Franz Liszt' })
+    expect(splitArtistTag('Nocturneartist :  Chopin ')).toEqual({ title: 'Nocturne', artist: 'Chopin' })
+  })
+  it('leaves titles without a usable tag alone', () => {
+    expect(splitArtistTag('Liebestraum No. 3')).toEqual({ title: 'Liebestraum No. 3', artist: null })
+    expect(splitArtistTag('Song artist:')).toEqual({ title: 'Song artist:', artist: null })
+    expect(splitArtistTag('artist: Liszt')).toEqual({ title: 'artist: Liszt', artist: null })
+  })
+  it('works in bulk add', () => {
+    expect(parseBulk('Nocturne artist: Chopin', false)).toEqual([{ title: 'Nocturne', artist: 'Chopin' }])
   })
 })
