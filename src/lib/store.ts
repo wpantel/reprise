@@ -7,7 +7,8 @@ export interface SongStore {
   update(id: string, patch: SongPatch): Promise<Song>
   remove(id: string): Promise<void>
   listPlays(): Promise<Play[]>
-  addPlay(songId: string, feltRusty: boolean): Promise<Play>
+  /** Records a play, now unless `playedAt` says when (a play logged offline). */
+  addPlay(songId: string, feltRusty: boolean, playedAt?: string): Promise<Play>
   removePlay(id: string): Promise<void>
   listSets(): Promise<SongSet[]>
   createSet(name: string, songIds: string[]): Promise<SongSet>
@@ -61,8 +62,9 @@ export function supabaseStore(client: SupabaseClient): SongStore {
         if (data.length < PAGE) return all
       }
     },
-    async addPlay(songId, feltRusty) {
-      const { data, error } = await client.from('plays').insert({ song_id: songId, felt_rusty: feltRusty }).select(PLAY_COLUMNS).single()
+    async addPlay(songId, feltRusty, playedAt) {
+      const row = { song_id: songId, felt_rusty: feltRusty, ...(playedAt && { played_at: playedAt }) }
+      const { data, error } = await client.from('plays').insert(row).select(PLAY_COLUMNS).single()
       if (error) throw error
       return data as Play
     },
@@ -143,8 +145,8 @@ export const localStore: SongStore = {
   async listPlays() {
     return readPlays()
   },
-  async addPlay(songId, feltRusty) {
-    const play: Play = { id: crypto.randomUUID(), song_id: songId, played_at: new Date().toISOString(), felt_rusty: feltRusty }
+  async addPlay(songId, feltRusty, playedAt) {
+    const play: Play = { id: crypto.randomUUID(), song_id: songId, played_at: playedAt ?? new Date().toISOString(), felt_rusty: feltRusty }
     writePlays([...readPlays(), play])
     return play
   },

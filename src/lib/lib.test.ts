@@ -4,6 +4,7 @@ import { flagDuplicates, parseBulk } from './bulk'
 import { EMPTY_FILTERS, matches, NO_SCORE, NONE, sortSongs } from './filters'
 import { agoLabel, analytics, daysSince, recentlyPlayed, reviveGroups } from './history'
 import { EMPTY_MEDLEY, medleySongs, moved, shuffled, swapCandidates } from './medley'
+import { isNetworkError, isQueued, newQueuedPlay, offlineCache } from './offline'
 import { parseConfidence, parseKey, parseTags } from './tags'
 import { keyHue, keyLabel, parseKeyId, spellings, type Play, type Song } from './songs'
 
@@ -256,5 +257,72 @@ describe('tags in typed titles', () => {
     expect(parseBulk('Nocturne - Chopin key: C# minor', true)).toEqual([
       { title: 'Nocturne', artist: 'Chopin', key_tonic: 'C#', key_mode: 'minor' },
     ])
+  })
+})
+
+describe('offline copy', () => {
+  /** A stand-in for localStorage. */
+  const memoryStorage = (): Storage => {
+    const m = new Map<string, string>()
+    return {
+      get length() {
+        return m.size
+      },
+      clear: () => m.clear(),
+      getItem: (k) => m.get(k) ?? null,
+      key: (i) => [...m.keys()][i] ?? null,
+      removeItem: (k) => void m.delete(k),
+      setItem: (k, v) => void m.set(k, v),
+    }
+  }
+  const play = (id: string): Play => ({ id, song_id: 'a', played_at: '2026-11-01T20:00:00Z', felt_rusty: false })
+
+  it('saves only what the server has confirmed', () => {
+    const cache = offlineCache('u1', memoryStorage())
+    cache.writeSnapshot(
+      [song({ id: 'a', title: 'Saved' }), { ...song({ id: 'pending-1', title: 'Typing' }), pending: true }],
+      [play('p1'), play('pending-2'), play('queued-3')],
+      [],
+      '2026-11-01T21:00:00Z',
+    )
+    const snap = cache.readSnapshot()!
+    expect(snap.songs.map((s) => s.id)).toEqual(['a'])
+    expect(snap.songs[0]).not.toHaveProperty('pending')
+    expect(snap.plays.map((p) => p.id)).toEqual(['p1'])
+    expect(snap.savedAt).toBe('2026-11-01T21:00:00Z')
+  })
+
+  it('keeps each account separate and clears on request', () => {
+    const storage = memoryStorage()
+    offlineCache('u1', storage).writeSnapshot([song({ id: 'a' })], [], [])
+    expect(offlineCache('u2', storage).readSnapshot()).toBeNull()
+    offlineCache('u1', storage).clearSnapshot()
+    expect(offlineCache('u1', storage).readSnapshot()).toBeNull()
+  })
+
+  it('queues plays in order with their time, and undoes one', () => {
+    const cache = offlineCache('u1', memoryStorage())
+    const first = newQueuedPlay('a', false, '2026-11-01T20:00:00Z')
+    const second = newQueuedPlay('b', true, '2026-11-01T20:05:00Z')
+    cache.enqueue(first)
+    cache.enqueue(second)
+    expect(isQueued(first.id)).toBe(true)
+    expect(cache.readQueue().map((p) => p.song_id)).toEqual(['a', 'b'])
+    cache.dequeue(first.id)
+    expect(cache.readQueue()).toEqual([second])
+  })
+
+  it('treats unreadable storage as empty', () => {
+    const storage = memoryStorage()
+    storage.setItem('reprise.queuedPlays.v1.u1', '{not json')
+    expect(offlineCache('u1', storage).readQueue()).toEqual([])
+    expect(offlineCache('u1', undefined).readSnapshot()).toBeNull()
+  })
+
+  it('tells a lost connection from a refusal', () => {
+    expect(isNetworkError(new Error('anything'), false)).toBe(true)
+    expect(isNetworkError(new TypeError('Failed to fetch'), true)).toBe(true)
+    expect(isNetworkError({ message: 'TypeError: Load failed' }, true)).toBe(true)
+    expect(isNetworkError({ message: 'new row violates row-level security policy', code: '42501' }, true)).toBe(false)
   })
 })
