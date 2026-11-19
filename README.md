@@ -24,6 +24,18 @@ browser only.
 Row-level security limits every account to its own songs, so the publishable
 key is safe to ship in the built site.
 
+## Install on your phone
+
+Open the deployed site, then:
+
+- **iPhone:** in Safari, tap Share, then Add to Home Screen.
+- **Android:** in Chrome, tap Install app (or the menu, then Install).
+
+The installed app opens with no connection. It shows your library as of the
+last time it synced, and plays you log offline are kept on the phone and sent
+when you're back online. Other edits need a connection. The service worker only
+runs in production builds (`npm run build && npm run preview`), not in `npm run dev`.
+
 ## Shortcuts
 
 - `N` jump to Quick Add

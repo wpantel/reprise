@@ -3,6 +3,7 @@ import { EMPTY_FILTERS, hasActiveFilters, matches, sortSongs, type Filters, type
 import { EMPTY_MEDLEY, type MedleyState } from '../lib/medley'
 import { agoLabel, daysSince, isSameDay, lastPlays, recentlyPlayed, reviveGroups } from '../lib/history'
 import type { Play, Song } from '../lib/songs'
+import type { OfflineCache } from '../lib/offline'
 import type { SongStore } from '../lib/store'
 import { parseTags } from '../lib/tags'
 import { useSongs } from '../lib/useSongs'
@@ -54,10 +55,22 @@ const savedSort = (): Sort => {
   return s === 'title' || s === 'key' ? s : 'added'
 }
 
-export function Library({ store, onSignOut }: { store: SongStore; onSignOut?: () => void }) {
+export function Library({
+  store,
+  cache,
+  canSync,
+  onSignOut,
+}: {
+  store: SongStore
+  /** This account's copy of the library on the device, for opening without a connection. */
+  cache?: OfflineCache
+  canSync?: boolean
+  onSignOut?: () => void
+}) {
   const [notice, setNotice] = useState<Notice | null>(null)
   const onError = useCallback((text: string) => setNotice({ text, error: true }), [])
-  const { songs, plays, sets, status, reload, add, update, remove, logPlay, removePlay, createSet, updateSet, removeSet } = useSongs(store, onError)
+  const { songs, plays, sets, status, reload, add, update, remove, logPlay, removePlay, createSet, updateSet, removeSet, offline, offlineSince, queuedCount } =
+    useSongs(store, onError, { cache, canSync })
   const [view, setViewState] = useState<View>(viewFromHash)
   const [filters, setFiltersState] = useState<Filters>(EMPTY_FILTERS)
   const [sort, setSort] = useState<Sort>(savedSort)
@@ -205,6 +218,8 @@ export function Library({ store, onSignOut }: { store: SongStore; onSignOut?: ()
             Local mode: songs are saved in this browser only. Add Supabase keys to sync across devices.
           </p>
         )}
+
+        <SyncStatus offline={offline} since={offlineSince} queued={queuedCount} />
 
         <main className="flex flex-col gap-4 px-4">
           {status === 'loading' && <p className="text-ink-2">Loading your songs…</p>}
@@ -374,5 +389,25 @@ export function Library({ store, onSignOut }: { store: SongStore; onSignOut?: ()
         </div>
       )}
     </div>
+  )
+}
+
+/** Says when the library on screen is the copy saved on this device, and how many plays are waiting to go up. */
+function SyncStatus({ offline, since, queued }: { offline: boolean; since: string | null; queued: number }) {
+  if (!offline && queued === 0) return null
+  const plays = `${queued} ${queued === 1 ? 'play' : 'plays'}`
+  const asOf = since && ` Showing your library as of ${new Date(since).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}.`
+  return (
+    <p role="status" className="mx-4 mb-4 rounded-lg bg-brass-soft px-3 py-2 text-sm">
+      {offline ? (
+        <>
+          <strong className="font-semibold">Offline.</strong>
+          {asOf}
+          {queued > 0 ? ` ${plays} saved on this device will sync when you’re back online.` : ' Plays you log will sync when you’re back online.'}
+        </>
+      ) : (
+        `Syncing ${plays} logged offline…`
+      )}
+    </p>
   )
 }
