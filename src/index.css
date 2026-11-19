@@ -66,6 +66,11 @@
   --shadow-card: var(--shadow-card);
 }
 
+/* While a dialog is open the page behind it stays put, so closing it returns you where you were. */
+html:has(dialog[open]) {
+  overflow: hidden;
+}
+
 body {
   background: var(--bg);
   color: var(--ink);

@@ -39,7 +39,7 @@ export function Modal({
       }}
       className={`fixed m-0 border-line bg-card p-0 text-ink shadow-card backdrop:bg-ebony/40 ${SHAPES[shape]}`}
     >
-      <div className="flex h-full max-h-[inherit] flex-col overflow-y-auto">{children}</div>
+      <div className="flex h-full max-h-[inherit] flex-col overflow-y-auto overscroll-contain">{children}</div>
     </dialog>
   )
 }
