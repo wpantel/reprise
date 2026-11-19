@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { detectArrangementType, normalizeUrl } from './arrangement'
 import { flagDuplicates, parseBulk } from './bulk'
 import { EMPTY_FILTERS, matches, NO_SCORE, NONE, sortSongs } from './filters'
-import { agoLabel, analytics, recentlyPlayed, reviveGroups } from './history'
+import { agoLabel, analytics, daysSince, recentlyPlayed, reviveGroups } from './history'
 import { EMPTY_MEDLEY, medleySongs, moved, shuffled, swapCandidates } from './medley'
 import { parseConfidence, parseKey, parseTags } from './tags'
 import { keyHue, keyLabel, parseKeyId, spellings, type Play, type Song } from './songs'
@@ -162,6 +162,15 @@ describe('play history', () => {
     expect(songs.filter((s) => matches(s, { ...EMPTY_FILTERS, played: 'recent' }, recent)).map((s) => s.title)).toEqual(['Rusty', 'Fresh'])
     expect(songs.filter((s) => matches(s, { ...EMPTY_FILTERS, played: 'stale' }, recent)).map((s) => s.title)).toEqual(['Confident', 'Shaky', 'Never'])
     expect(songs.filter((s) => matches(s, { ...EMPTY_FILTERS, recall: NO_SCORE })).map((s) => s.title)).toEqual(['Confident', 'Rusty'])
+  })
+  it('counts calendar days in local time, not 24-hour blocks', () => {
+    const at = (d: number, h: number) => new Date(2026, 10, d, h).toISOString()
+    const morning = new Date(2026, 10, 18, 9)
+    expect(daysSince(at(17, 23), morning)).toBe(1)
+    expect(daysSince(at(18, 0), morning)).toBe(0)
+    expect(daysSince(at(10, 23), new Date(2026, 10, 18, 0, 30))).toBe(8)
+    // Across the November daylight-saving change.
+    expect(daysSince(new Date(2026, 10, 1, 1).toISOString(), new Date(2026, 10, 2, 0, 30))).toBe(1)
   })
   it('words elapsed time plainly', () => {
     expect([0, 1, 9, 21, 95].map(agoLabel)).toEqual(['today', 'yesterday', '9 days ago', '3 weeks ago', '3 months ago'])
