@@ -11,7 +11,10 @@ export const CONFIDENT_FROM = 4
 /** Window for "played recently" in analytics. */
 export const RECENT_DAYS = 30
 
-export const daysSince = (iso: string, now: Date) => Math.max(0, Math.floor((now.getTime() - new Date(iso).getTime()) / DAY))
+const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+/** Calendar days between a play and now, in local time: last night at 11pm is 1 day ago this morning. */
+// Rounding absorbs the 23- and 25-hour days at daylight-saving changes.
+export const daysSince = (iso: string, now: Date) => Math.max(0, Math.round((startOfDay(now) - startOfDay(new Date(iso))) / DAY))
 export const isSameDay = (iso: string, now: Date) => new Date(iso).toDateString() === now.toDateString()
 
 /** The most recent play of each song. */
