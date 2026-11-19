@@ -26,7 +26,13 @@ export function supabaseStore(client: SupabaseClient): SongStore {
       return data as Song[]
     },
     async insert(songs) {
-      const rows = songs.map((s) => ({ title: s.title, artist: s.artist ?? null }))
+      const rows = songs.map((s) => ({
+        title: s.title,
+        artist: s.artist ?? null,
+        key_tonic: s.key_tonic ?? null,
+        key_mode: s.key_mode ?? null,
+        confidence: s.confidence ?? null,
+      }))
       const { data, error } = await client.from('songs').insert(rows).select(COLUMNS)
       if (error) throw error
       return data as Song[]
@@ -110,10 +116,10 @@ export const localStore: SongStore = {
       id: crypto.randomUUID(),
       title: s.title,
       artist: s.artist ?? null,
-      key_tonic: null,
-      key_mode: null,
+      key_tonic: s.key_tonic ?? null,
+      key_mode: s.key_mode ?? null,
       recall: null,
-      confidence: null,
+      confidence: s.confidence ?? null,
       arrangement_url: null,
       arrangement_type: null,
       tags: [],
