@@ -4,7 +4,7 @@ import { EMPTY_MEDLEY, type MedleyState } from '../lib/medley'
 import { agoLabel, daysSince, isSameDay, lastPlays, recentlyPlayed, reviveGroups } from '../lib/history'
 import type { Play, Song } from '../lib/songs'
 import type { SongStore } from '../lib/store'
-import { splitArtistTag } from '../lib/text'
+import { parseTags } from '../lib/tags'
 import { useSongs } from '../lib/useSongs'
 import { AnalyticsView } from './AnalyticsView'
 import { BulkAdd } from './BulkAdd'
@@ -117,7 +117,7 @@ export function Library({ store, onSignOut }: { store: SongStore; onSignOut?: ()
 
   const quickAdd = useCallback(
     async (title: string) => {
-      const [saved] = await add([splitArtistTag(title)])
+      const [saved] = await add([parseTags(title)])
       setLastAddedId(saved.id)
     },
     [add],

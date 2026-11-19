@@ -1,5 +1,6 @@
 import type { NewSong, Song } from './songs'
-import { dupKey, splitArtistTag } from './text'
+import { parseTags } from './tags'
+import { dupKey } from './text'
 
 /** One song per line. Blank lines and list markers ("- ", "3. ") are dropped. */
 export function parseBulk(text: string, splitArtist: boolean): NewSong[] {
@@ -8,13 +9,12 @@ export function parseBulk(text: string, splitArtist: boolean): NewSong[] {
     .map((line) => line.trim().replace(/^([-*•]|\d+[.)])\s+/, ''))
     .filter(Boolean)
     .map((line) => {
-      const tagged = splitArtistTag(line)
-      if (tagged.artist) return tagged
-      if (splitArtist) {
-        const m = line.match(/^(.+?)\s+[-–—]\s+(.+)$/)
-        if (m) return { title: m[1].trim(), artist: m[2].trim() }
+      const tagged = parseTags(line)
+      if (splitArtist && !tagged.artist) {
+        const m = tagged.title.match(/^(.+?)\s+[-–—]\s+(.+)$/)
+        if (m) return { ...tagged, title: m[1].trim(), artist: m[2].trim() }
       }
-      return { title: line, artist: null }
+      return tagged
     })
 }
 
