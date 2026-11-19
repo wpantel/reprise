@@ -40,6 +40,9 @@ export type SongPatch = Partial<Omit<Song, 'id' | 'created_at'>>
 export interface NewSong {
   title: string
   artist?: string | null
+  key_tonic?: Tonic | null
+  key_mode?: Mode | null
+  confidence?: number | null
 }
 
 /** One time a song was played. */
