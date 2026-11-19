@@ -73,6 +73,8 @@ export function Library({ store, onSignOut }: { store: SongStore; onSignOut?: ()
   const setView = (v: View) => {
     setViewState(v)
     history.replaceState(null, '', v === 'library' ? location.pathname : `#${v}`)
+    // The tabs stay reachable while scrolled, so a new view would otherwise open mid-page.
+    window.scrollTo({ top: 0 })
   }
   const quickRef = useRef<HTMLInputElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
@@ -141,13 +143,23 @@ export function Library({ store, onSignOut }: { store: SongStore; onSignOut?: ()
     if (saved) {
       setOpenSetId(saved.id)
       setView('sets')
-      window.scrollTo({ top: 0 })
     }
   }
   const todaysPlay = (songId: string): Play | undefined => {
     const p = last.get(songId)
     return p && isSameDay(p.played_at, now) ? p : undefined
   }
+
+  const viewTabs = VIEWS.map((v) => (
+    <button key={v.id} className="flex-1" aria-current={view === v.id ? 'page' : undefined} onClick={() => setView(v.id)}>
+      {v.label}
+      {v.id === 'revive' && dueCount > 0 && (
+        <span className="ml-1.5 rounded-full bg-felt px-1.5 py-0.5 text-xs font-semibold text-white" aria-label={`${dueCount} due`}>
+          {dueCount}
+        </span>
+      )}
+    </button>
+  ))
 
   return (
     <div className="pb-[max(2rem,env(safe-area-inset-bottom))]">
@@ -159,22 +171,16 @@ export function Library({ store, onSignOut }: { store: SongStore; onSignOut?: ()
       </div>
 
       <div className="mx-auto max-w-5xl">
-        <header className="flex flex-wrap items-center gap-x-3 gap-y-3 px-4 pt-5 pb-4">
+        <header className="flex flex-wrap items-center gap-x-3 gap-y-3 px-4 pt-5 pb-3 md:pb-4">
           <Logo />
           <h1 className="font-display text-5xl leading-none">Reprise</h1>
           <div aria-hidden="true" className="staff mx-2 hidden flex-1 lg:block" />
-          <nav aria-label="Views" className="seg seg-nav order-last w-full md:order-none md:ml-auto md:w-auto lg:ml-0">
-            {VIEWS.map((v) => (
-              <button key={v.id} className="flex-1" aria-current={view === v.id ? 'page' : undefined} onClick={() => setView(v.id)}>
-                {v.label}
-                {v.id === 'revive' && dueCount > 0 && (
-                  <span className="ml-1.5 rounded-full bg-felt px-1.5 py-0.5 text-xs font-semibold text-white" aria-label={`${dueCount} due`}>
-                    {dueCount}
-                  </span>
-                )}
-              </button>
-            ))}
-          </nav>
+          {/* Desktop: the tabs sit in the header row. */}
+          <div className="hidden md:ml-auto md:block lg:ml-0">
+            <nav aria-label="Views" className="seg seg-nav">
+              {viewTabs}
+            </nav>
+          </div>
           <div className="ml-auto flex gap-2 md:ml-0">
             <button className="btn" onClick={() => setBulkOpen(true)}>
               Bulk Add
@@ -186,6 +192,12 @@ export function Library({ store, onSignOut }: { store: SongStore; onSignOut?: ()
             )}
           </div>
         </header>
+        {/* Phone: the tabs get their own bar that stays pinned to the top while scrolling. */}
+        <div className="sticky top-0 z-30 bg-bg px-4 pt-[max(0.5rem,env(safe-area-inset-top))] pb-3 md:hidden">
+          <nav aria-label="Views" className="seg seg-nav w-full">
+            {viewTabs}
+          </nav>
+        </div>
 
         {!onSignOut && (
           <p className="mx-4 mb-4 rounded-lg bg-brass-soft px-3 py-2 text-sm">
@@ -229,7 +241,6 @@ export function Library({ store, onSignOut }: { store: SongStore; onSignOut?: ()
               onShow={(patch) => {
                 setFilters({ ...EMPTY_FILTERS, ...patch })
                 setView('library')
-                window.scrollTo({ top: 0 })
               }}
             />
           )}

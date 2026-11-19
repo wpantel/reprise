@@ -18,7 +18,7 @@ function ReviveCard({
 }) {
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line px-4 py-3 last:border-b-0">
-      <button onClick={onOpen} aria-label={`Edit ${song.title}`} className="min-w-0 flex-1 basis-56 text-left">
+      <button onClick={onOpen} aria-label={`Edit ${song.title}`} className="min-w-0 flex-1 basis-full text-left md:basis-56">
         <span className="block truncate text-[1.0625rem] font-medium md:text-base">{song.title}</span>
         <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-2">
           <span>{note}</span>
