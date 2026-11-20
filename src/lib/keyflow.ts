@@ -6,8 +6,12 @@ type Keyed = Pick<Song, 'key_tonic' | 'key_mode'>
 export type Distance = 'close' | 'moderate' | 'distant' | 'unknown'
 
 export interface Transition {
-  /** "Up a 5th", "Relative minor", "No key set"… */
+  /** Spelled out for screen readers: "up a fourth", "relative minor", "no key"… */
   label: string
+  /** The marking as written on the page, terse like a score: "↑ 4th", "↓ whole step · minor", "relative minor". */
+  short: string
+  /** Which way the tonic moves, by the shorter way round. */
+  direction: 'up' | 'down' | 'none'
   distance: Distance
   /** Steps around the circle of fifths (0–6), plus a little for a change of mode. Used to order a set. */
   cost: number
@@ -23,12 +27,13 @@ function signature(pc: number, mode: Mode) {
   return (major * 7) % 12
 }
 
-const STEP_NAMES = ['', 'half step', 'whole step', 'minor 3rd', 'major 3rd', '4th', 'tritone']
+const STEP_NAMES = ['', 'half step', 'whole step', 'minor third', 'major third', 'fourth', 'tritone']
+const STEP_SHORT = ['', 'half step', 'whole step', 'min 3rd', 'maj 3rd', '4th', 'tritone']
 
 /** Describes moving from one song's key to the next. */
 export function transition(from: Keyed, to: Keyed): Transition {
   if (!from.key_tonic || !from.key_mode || !to.key_tonic || !to.key_mode) {
-    return { label: 'No key set', distance: 'unknown', cost: UNKNOWN_COST }
+    return { label: 'no key', short: 'no key', direction: 'none', distance: 'unknown', cost: UNKNOWN_COST }
   }
   const a = pitchClass(from.key_tonic)
   const b = pitchClass(to.key_tonic)
@@ -39,17 +44,21 @@ export function transition(from: Keyed, to: Keyed): Transition {
   const distance: Distance = fifths <= 1 ? 'close' : fifths <= 3 ? 'moderate' : 'distant'
 
   const toMode = to.key_mode
+  const up = (b - a + 12) % 12
+  const steps = up <= 6 ? up : 12 - up
+  const direction = steps === 0 || steps === 6 ? 'none' : up <= 6 ? 'up' : 'down'
   let label: string
-  if (a === b && !modeChange) label = 'Same key'
-  else if (fifths === 0) label = `Relative ${toMode}`
-  else if (a === b) label = `Parallel ${toMode}`
+  let short: string
+  if (a === b && !modeChange) label = short = 'same key'
+  else if (fifths === 0) label = short = `relative ${toMode}`
+  else if (a === b) label = short = `parallel ${toMode}`
   else {
-    const up = (b - a + 12) % 12
-    const steps = up <= 6 ? up : 12 - up
-    const motion = steps === 6 ? 'A tritone away' : `${up <= 6 ? 'Up' : 'Down'} a ${STEP_NAMES[steps]}`
-    label = modeChange ? `${motion}, to ${toMode}` : motion
+    const motion = steps === 6 ? 'a tritone away' : `${direction} a ${STEP_NAMES[steps]}`
+    label = modeChange ? `${motion}, into ${toMode}` : motion
+    const arrow = direction === 'up' ? '↑ ' : direction === 'down' ? '↓ ' : ''
+    short = `${arrow}${STEP_SHORT[steps]}${modeChange ? ` · ${toMode}` : ''}`
   }
-  return { label, distance, cost }
+  return { label, short, direction, distance, cost }
 }
 
 /** The changes between each song and the next. */

@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { EMPTY_MEDLEY, medleySongs, shuffled, type MedleyState } from '../lib/medley'
 import { PITCH_NAMES, pitchClass, type Mode, type Song } from '../lib/songs'
 import { playKey } from '../lib/sound'
-import { RecallTag } from './controls'
+import { KeyBadge, RecallTag, SongLabel } from './controls'
 import { hueStyle, Piano } from './Piano'
 import { StandView, Star } from './StandView'
 
@@ -158,16 +158,16 @@ export function MedleyView({
                       aria-pressed={isPinned}
                       aria-label={`${song.title}${isPinned ? ', starred. Remove star' : '. Star'}`}
                       onClick={() => togglePin(song.id)}
-                      className={`flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left hover:bg-bg ${isPinned ? 'bg-felt-soft hover:bg-felt-soft' : ''}`}
+                      className={`flex min-h-14 w-full items-center gap-3 px-4 py-1.5 text-left hover:bg-bg md:min-h-11 ${isPinned ? 'bg-felt-soft hover:bg-felt-soft' : ''}`}
                     >
-                      <span className={`text-xl ${isPinned ? 'text-felt' : 'text-ink-2'}`}>
+                      <span className={`text-lg ${isPinned ? 'text-felt' : 'text-ink-2'}`}>
                         <Star filled={isPinned} />
                       </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block font-display text-3xl leading-tight">{song.title}</span>
-                        {song.artist && <span className="block text-sm text-ink-2">{song.artist}</span>}
+                      <SongLabel title={song.title} subtitle={song.artist} />
+                      <span className="flex shrink-0 flex-col items-end gap-0.5">
+                        <KeyBadge song={song} />
+                        {song.recall && <RecallTag recall={song.recall} />}
                       </span>
-                      {song.recall && <RecallTag recall={song.recall} />}
                     </button>
                   </li>
                 )

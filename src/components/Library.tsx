@@ -243,6 +243,7 @@ export function Library({
               onCreate={(name) => saveSet(name, [])}
               onPatch={updateSet}
               onDelete={removeSet}
+              onNotice={(text, undo) => setNotice({ text, action: { label: 'Undo', run: undo } })}
             />
           )}
 
