@@ -1,6 +1,6 @@
 import type { ArrangementType, SongPatch } from '../lib/songs'
 import type { LibrarySong } from '../lib/useSongs'
-import { Dynamics, KeyBadge, KeySelect, PlayedButton, RecallSelect, RecallTag } from './controls'
+import { Dynamics, KeyBadge, KeySelect, PlayedButton, RecallSelect, RecallTag, SongLabel } from './controls'
 
 /** Column template shared by the header and every row (desktop only). */
 export const ROW_GRID =
@@ -32,12 +32,7 @@ export function SongRow({
         aria-label={`Edit ${song.title}`}
         className="flex min-h-14 min-w-0 items-center gap-3 py-1.5 text-left disabled:opacity-100 md:min-h-11"
       >
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[1.0625rem] md:text-sm md:font-medium">{song.title}</span>
-          {(song.artist || pending) && (
-            <span className="block truncate text-sm text-ink-2 md:text-xs">{pending ? 'Saving…' : song.artist}</span>
-          )}
-        </span>
+        <SongLabel title={song.title} subtitle={pending ? 'Saving…' : song.artist} />
         {/* Phone: key and recall at a glance. Editing happens in the detail panel. */}
         <span className="flex shrink-0 flex-col items-end gap-0.5 md:hidden">
           <KeyBadge song={song} />

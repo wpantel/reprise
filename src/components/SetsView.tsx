@@ -1,21 +1,17 @@
-import { useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent } from 'react'
-import { smoothOrder, transition, type Distance, type Transition } from '../lib/keyflow'
+import { useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type PointerEvent } from 'react'
+import { smoothOrder, transition, type Transition } from '../lib/keyflow'
 import { moved, swapCandidates } from '../lib/medley'
 import { playKey } from '../lib/sound'
-import { keyLabel, pitchClass, songKeyId, type SetPatch, type Song, type SongSet } from '../lib/songs'
+import { keyHue, keyLabel, pitchClass, songKeyId, type SetPatch, type Song, type SongSet } from '../lib/songs'
 import { fold } from '../lib/text'
-import { KeyBadge } from './controls'
+import { KeyBadge, SongLabel } from './controls'
 import { CommitInput } from './SongDetail'
 import { StandView } from './StandView'
 
 const songsWord = (n: number) => `${n} ${n === 1 ? 'song' : 'songs'}`
 
-const DISTANCE_STYLE: Record<Distance, { dot: string; word: string }> = {
-  close: { dot: 'bg-accent', word: 'smooth' },
-  moderate: { dot: 'bg-brass', word: 'noticeable' },
-  distant: { dot: 'bg-felt', word: 'a leap' },
-  unknown: { dot: 'border border-ink-2', word: 'unknown' },
-}
+/** A song's key colour, the same hue its key badge uses; a neutral grey when it has no key. */
+const keyColour = (s: Song) => (s.key_tonic ? `oklch(0.6 0.15 ${keyHue(pitchClass(s.key_tonic))})` : 'var(--pkey-border)')
 
 /** Plays one key's chord, then the next, so you can hear the change. */
 function hearChange(from: Song, to: Song) {
@@ -25,60 +21,82 @@ function hearChange(from: Song, to: Song) {
   setTimeout(() => playKey(b, to.key_mode), 650)
 }
 
-/** The key change from the song above to this one, shown between the two rows. */
-function ChangeLine({ from, to, change }: { from: Song; to: Song; change: Transition }) {
-  const style = DISTANCE_STYLE[change.distance]
-  const content = (
-    <>
-      <span aria-hidden="true" className={`inline-block h-2 w-2 shrink-0 rounded-full ${style.dot}`} />
-      <span>{change.label}</span>
-      {change.distance !== 'unknown' && <span className="text-ink-2">· {style.word}</span>}
-    </>
-  )
-  const keyed = from.key_tonic && to.key_tonic
+/** How much two neighbouring colours in the ribbon run into each other, as a share of a song's width. */
+const BLEND = { close: 0.5, moderate: 0.22, distant: 0, unknown: 0 } as const
+
+/**
+ * The set as one strip of key colours, in playing order. Close keys melt into each
+ * other; a leap is a hard edge. The same hues as the spectrum along the top of the app.
+ */
+function ribbon(songs: Song[]): CSSProperties {
+  if (songs.length === 0) return {}
+  const w = 100 / songs.length
+  const stops = songs.flatMap((s, i) => {
+    const into = i > 0 ? BLEND[transition(songs[i - 1], s).distance] * (w / 2) : 0
+    const out = i < songs.length - 1 ? BLEND[transition(s, songs[i + 1]).distance] * (w / 2) : 0
+    const c = keyColour(s)
+    return [`${c} ${(i * w + into).toFixed(2)}%`, `${c} ${((i + 1) * w - out).toFixed(2)}%`]
+  })
+  return { backgroundImage: `linear-gradient(to right, ${stops.join(', ')})` }
+}
+
+/**
+ * A slur between two keys, in their colours. It arches up for a rise and dips for a fall,
+ * lies nearly flat for the same or a relative key, and stretches taller the further the keys are apart.
+ */
+function Slur({ from, to, change }: { from: Song; to: Song; change: Transition }) {
+  const id = useId()
+  const depth = { close: 3, moderate: 6, distant: 9, unknown: 3 }[change.distance]
+  const dy = change.direction === 'up' ? -depth : depth
+  const y = change.direction === 'up' ? 12 : 3
   return (
-    <div className="-mt-0.5 flex pb-0.5 pl-[4.75rem] text-xs text-ink-2">
-      {keyed ? (
-        <button
-          type="button"
-          className="flex items-center gap-1.5 rounded px-1 py-0.5 text-ink hover:bg-surface"
-          aria-label={`${change.label}, ${style.word}. Play ${keyLabel(songKeyId(from)!)} then ${keyLabel(songKeyId(to)!)}`}
-          onClick={() => hearChange(from, to)}
-        >
-          {content}
-        </button>
-      ) : (
-        <span className="flex items-center gap-1.5 px-1 py-0.5">{content}</span>
-      )}
-    </div>
+    <svg aria-hidden="true" viewBox="0 0 30 15" className="h-[17px] w-[34px] shrink-0 overflow-visible">
+      <defs>
+        <linearGradient id={id} x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0" stopColor={keyColour(from)} />
+          <stop offset="1" stopColor={keyColour(to)} />
+        </linearGradient>
+      </defs>
+      {/* Drawn like an engraved slur: thin at the tips, swelling in the middle. */}
+      <path
+        d={`M2 ${y} Q15 ${y + dy * 2} 28 ${y} Q15 ${y + dy * 2 - Math.sign(dy) * 2.6} 2 ${y} Z`}
+        fill={`url(#${id})`}
+        stroke={`url(#${id})`}
+        strokeWidth="0.9"
+        strokeLinejoin="round"
+        strokeDasharray={change.distance === 'unknown' ? '2 2' : undefined}
+      />
+    </svg>
   )
 }
 
-/** A count of each kind of key change in the set, and a button to reorder for smoother ones. */
-function KeyFlowBar({ songs, ids, onReorder }: { songs: Song[]; ids: string[]; onReorder: (ids: string[], before: string[]) => void }) {
-  const changes = songs.slice(1).map((s, i) => transition(songs[i], s))
-  const counts = (['close', 'moderate', 'distant', 'unknown'] as Distance[])
-    .map((d) => [d, changes.filter((c) => c.distance === d).length] as const)
-    .filter(([, n]) => n > 0)
-  const order = smoothOrder(songs)
-  const canSmooth = order.some((j, i) => j !== i)
+/**
+ * The key change into this song, written across the line above it the way a
+ * marking sits on a score. Tapping it plays the two keys.
+ */
+function Marking({ from, to }: { from: Song; to: Song }) {
+  const change = transition(from, to)
+  const leap = change.distance === 'distant'
+  const body = (
+    <>
+      <Slur from={from} to={to} change={change} />
+      <span>{change.short}</span>
+    </>
+  )
+  const className = `marking flex min-h-7 items-center gap-1.5 rounded-full bg-card px-2 font-display text-[1.0625rem] leading-none italic ${leap ? 'text-ink' : 'text-ink-2'}`
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-      <span className="font-medium">Key changes</span>
-      <span className="flex flex-wrap gap-x-3 gap-y-1 text-ink-2">
-        {counts.map(([d, n]) => (
-          <span key={d} className="flex items-center gap-1.5">
-            <span aria-hidden="true" className={`inline-block h-2 w-2 rounded-full ${DISTANCE_STYLE[d].dot}`} />
-            {n} {DISTANCE_STYLE[d].word}
-          </span>
-        ))}
-      </span>
-      {canSmooth ? (
-        <button className="btn ml-auto" onClick={() => onReorder(order.map((j) => ids[j]), ids)}>
-          Smooth Key Changes
+    <div className="pointer-events-none absolute top-0 left-[3.75rem] z-10 -translate-y-1/2">
+      {from.key_tonic && to.key_tonic ? (
+        <button
+          type="button"
+          className={`${className} pointer-events-auto hover:text-ink focus-visible:text-ink`}
+          aria-label={`From ${keyLabel(songKeyId(from)!)} to ${keyLabel(songKeyId(to)!)}: ${change.label}${leap ? ', a leap' : ''}. Play both`}
+          onClick={() => hearChange(from, to)}
+        >
+          {body}
         </button>
       ) : (
-        songs.length > 3 && <span className="ml-auto text-ink-2">Already as smooth as it gets</span>
+        <span className={className}>{body}</span>
       )}
     </div>
   )
@@ -115,7 +133,11 @@ function SetList({ sets, songsById, onOpen, onCreate }: { sets: SongSet[]; songs
             const songs = set.song_ids.map((id) => songsById.get(id)).filter((s): s is Song => !!s)
             return (
               <li key={set.id}>
-                <button onClick={() => onOpen(set.id)} className="flex h-full w-full flex-col gap-2 rounded-2xl border border-line bg-card p-4 text-left shadow-card hover:border-ink-2">
+                <button
+                  onClick={() => onOpen(set.id)}
+                  className="relative flex h-full w-full flex-col gap-2 overflow-hidden rounded-2xl border border-line bg-card p-4 pt-5 text-left shadow-card hover:border-ink-2"
+                >
+                  {songs.length > 0 && <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1" style={ribbon(songs)} />}
                   <span className="font-display text-3xl leading-tight">{set.name}</span>
                   <span className="text-sm text-ink-2">{songsWord(songs.length)}</span>
                   <span className="flex flex-wrap gap-1">
@@ -140,6 +162,7 @@ function SetEditor({
   onPatch,
   onDelete,
   onBack,
+  onNotice,
 }: {
   set: SongSet
   songs: Song[]
@@ -147,6 +170,7 @@ function SetEditor({
   onPatch: (patch: SetPatch) => void
   onDelete: () => void
   onBack: () => void
+  onNotice: (text: string, undo: () => void) => void
 }) {
   // Ids of songs deleted since they were added are dropped on the next save.
   const saved = set.song_ids.filter((id) => songsById.has(id))
@@ -156,8 +180,6 @@ function SetEditor({
   const [query, setQuery] = useState('')
   const [playing, setPlaying] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
-  /** The order before the last smoothing, offered for undo while the set is still in the smoothed order. */
-  const [smoothed, setSmoothed] = useState<{ before: string[]; after: string[] } | null>(null)
   const listRef = useRef<HTMLOListElement>(null)
   const ids = draft ?? saved
   const idsRef = useRef(ids)
@@ -168,6 +190,36 @@ function SetEditor({
   const matches = words.length
     ? songs.filter((s) => !ids.includes(s.id) && words.every((w) => fold(`${s.title} ${s.artist ?? ''}`).includes(w))).slice(0, 8)
     : []
+
+  // Smoothing and its undo glide each row from where it was to where it lands.
+  const glideFrom = useRef<Map<string, number> | null>(null)
+  function reorder(next: string[]) {
+    const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (listRef.current && !reduce) {
+      glideFrom.current = new Map([...listRef.current.children].map((row) => [(row as HTMLElement).dataset.id!, row.getBoundingClientRect().top]))
+    }
+    onPatch({ song_ids: next })
+  }
+  const order = saved.join()
+  useLayoutEffect(() => {
+    const from = glideFrom.current
+    glideFrom.current = null
+    if (!from || !listRef.current) return
+    for (const row of listRef.current.children as HTMLCollectionOf<HTMLElement>) {
+      const top = from.get(row.dataset.id!)
+      const dy = top === undefined ? 0 : top - row.getBoundingClientRect().top
+      if (dy) row.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 520, easing: 'cubic-bezier(0.22, 0.8, 0.24, 1)' })
+    }
+  }, [order])
+
+  const smoother = inSet.length > 3 ? smoothOrder(inSet) : null
+  const canSmooth = !!smoother && smoother.some((j, i) => j !== i)
+  function smooth() {
+    if (!smoother) return
+    const before = saved
+    reorder(smoother.map((j) => ids[j]))
+    onNotice('Reordered for smoother key changes. The first and last songs stayed put.', () => reorder(before))
+  }
 
   // Dragging: follow the pointer, moving the row into whichever slot it is over.
   function dragStart(e: PointerEvent<HTMLButtonElement>, id: string) {
@@ -209,47 +261,29 @@ function SetEditor({
           Set name
           <CommitInput value={set.name} onCommit={(d) => (d.trim() ? onPatch({ name: d.trim() }) : false)} />
         </label>
+        {canSmooth && (
+          <button className="btn" onClick={smooth}>
+            Smooth Key Changes
+          </button>
+        )}
         <button className="btn btn-primary" disabled={inSet.length === 0} onClick={() => setPlaying(true)}>
           Play Set
         </button>
       </div>
 
-      {inSet.length >= 2 && (
-        <KeyFlowBar
-          songs={inSet}
-          ids={ids}
-          onReorder={(after, before) => {
-            onPatch({ song_ids: after })
-            setSmoothed({ before, after })
-          }}
-        />
-      )}
-      {smoothed && smoothed.after.join() === saved.join() && (
-        <p role="status" className="flex flex-wrap items-center gap-2 text-sm">
-          Reordered for smoother key changes. The first and last songs stayed put.
-          <button
-            className="btn"
-            onClick={() => {
-              onPatch({ song_ids: smoothed.before })
-              setSmoothed(null)
-            }}
-          >
-            Undo
-          </button>
-        </p>
-      )}
-
       {inSet.length === 0 ? (
         <p className="rounded-2xl border border-line bg-card px-4 py-8 text-center text-ink-2 shadow-card">This set is empty. Search below to add songs.</p>
       ) : (
-        <ol ref={listRef} aria-label={`Songs in ${set.name}`} className="overflow-hidden rounded-2xl border border-line bg-card shadow-card">
+        <div className="overflow-hidden rounded-2xl border border-line bg-card shadow-card">
+        <div aria-hidden="true" className="h-1.5" style={ribbon(inSet)} />
+        <ol ref={listRef} aria-label={`Songs in ${set.name}`}>
           {inSet.map((song, i) => {
             const candidates = swapping === song.id ? swapCandidates(song, songs, ids) : []
             const keyId = songKeyId(song)
             return (
-              <li key={song.id} className={`border-b border-line last:border-b-0 ${dragging === song.id ? 'dragging' : ''}`}>
-                {i > 0 && <ChangeLine from={inSet[i - 1]} to={song} change={transition(inSet[i - 1], song)} />}
-                <div className="flex flex-wrap items-center gap-2 py-1.5 pr-3 pl-1">
+              <li key={song.id} data-id={song.id} className={`relative border-b border-line bg-card last:border-b-0 ${dragging === song.id ? 'dragging' : ''}`}>
+                {i > 0 && !dragging && <Marking key={inSet[i - 1].id} from={inSet[i - 1]} to={song} />}
+                <div className="flex flex-wrap items-center gap-2 py-2 pr-3 pl-1">
                   <button
                     type="button"
                     aria-label={`Move ${song.title}. Drag, or use the up and down arrow keys`}
@@ -265,9 +299,8 @@ function SetEditor({
                     </svg>
                   </button>
                   <span className="w-6 shrink-0 text-right font-display text-2xl leading-none text-ink-2 tabular-nums">{i + 1}</span>
-                  <span className="min-w-0 flex-1 basis-[60%] pl-1 md:basis-0">
-                    <span className="block truncate text-[1.0625rem] font-medium md:text-base">{song.title}</span>
-                    {song.artist && <span className="block truncate text-sm text-ink-2">{song.artist}</span>}
+                  <span className="flex min-w-0 flex-1 basis-[60%] pl-1 md:basis-0">
+                    <SongLabel title={song.title} subtitle={song.artist} />
                   </span>
                   {/* On a phone these drop to a second line so the title keeps its width. */}
                   <span className="ml-auto flex items-center gap-2">
@@ -310,6 +343,7 @@ function SetEditor({
             )
           })}
         </ol>
+        </div>
       )}
 
       <section aria-label="Add songs" className="flex flex-col gap-2">
@@ -331,12 +365,12 @@ function SetEditor({
                   <button
                     aria-label={`Add ${s.title} to the set`}
                     onClick={() => onPatch({ song_ids: [...saved, s.id] })}
-                    className="flex min-h-11 w-full items-center gap-3 px-3 py-1.5 text-left hover:bg-bg"
+                    className="flex min-h-14 w-full items-center gap-3 px-4 py-1.5 text-left hover:bg-bg md:min-h-11"
                   >
                     <span aria-hidden="true" className="text-lg leading-none text-accent">
                       +
                     </span>
-                    <span className="min-w-0 flex-1 truncate">{s.title}</span>
+                    <SongLabel title={s.title} subtitle={s.artist} />
                     <KeyBadge song={s} />
                   </button>
                 </li>
@@ -377,6 +411,7 @@ export function SetsView({
   onCreate,
   onPatch,
   onDelete,
+  onNotice,
 }: {
   songs: Song[]
   sets: SongSet[]
@@ -385,6 +420,8 @@ export function SetsView({
   onCreate: (name: string) => void
   onPatch: (id: string, patch: SetPatch) => void
   onDelete: (id: string) => void
+  /** Shows a message with an Undo button in the app's notice bar. */
+  onNotice: (text: string, undo: () => void) => void
 }) {
   const songsById = new Map(songs.map((s) => [s.id, s]))
   const open = sets.find((s) => s.id === openSetId)
@@ -396,6 +433,7 @@ export function SetsView({
       songs={songs}
       songsById={songsById}
       onPatch={(patch) => onPatch(open.id, patch)}
+      onNotice={onNotice}
       onBack={() => onOpenSet(null)}
       onDelete={() => {
         onOpenSet(null)

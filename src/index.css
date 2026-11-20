@@ -401,3 +401,19 @@ select.keybadge-none:hover {
     transform: none !important;
   }
 }
+
+/* ── Set key markings: written across the line between two songs ── */
+.marking {
+  animation: marking-in 360ms 200ms both cubic-bezier(0.22, 0.8, 0.24, 1);
+}
+@keyframes marking-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marking {
+    animation: none;
+  }
+}
