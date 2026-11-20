@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { agoLabel, CONFIDENT_FROM, REVIVE_AFTER_DAYS, reviveGroups, RUSTY_AFTER_DAYS, type DueSong } from '../lib/history'
 import { DYNAMICS, type Play, type Song } from '../lib/songs'
-import { KeyBadge, RecallTag } from './controls'
+import { KeyBadge, RecallTag, SongLabel } from './controls'
 
 const UNPLAYED_PREVIEW = 6
 
@@ -17,16 +17,32 @@ function ReviveCard({
   onPlayed: (feltRusty: boolean) => void
 }) {
   return (
-    <li className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line px-4 py-3 last:border-b-0">
-      <button onClick={onOpen} aria-label={`Edit ${song.title}`} className="min-w-0 flex-1 basis-full text-left md:basis-56">
-        <span className="block truncate text-[1.0625rem] font-medium md:text-base">{song.title}</span>
-        <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-2">
-          <span>{note}</span>
+    <li className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line px-4 py-1.5 last:border-b-0 hover:bg-bg">
+      <button
+        onClick={onOpen}
+        aria-label={`Edit ${song.title}`}
+        className="flex min-h-14 min-w-0 flex-1 basis-full items-center gap-3 text-left md:min-h-11 md:basis-56"
+      >
+        <SongLabel
+          title={song.title}
+          subtitle={
+            <>
+              {song.artist && `${song.artist} · `}
+              {note}
+              {song.confidence && (
+                <>
+                  {' · '}
+                  <i className="font-display text-ink">{DYNAMICS[song.confidence - 1]}</i>
+                </>
+              )}
+            </>
+          }
+        />
+        <span className="flex shrink-0 flex-col items-end gap-0.5">
+          <KeyBadge song={song} />
           {song.recall && <RecallTag recall={song.recall} />}
-          {song.confidence && <i className="font-display text-base leading-none text-ink">{DYNAMICS[song.confidence - 1]}</i>}
         </span>
       </button>
-      <KeyBadge song={song} />
       <div className="flex gap-2">
         {song.arrangement_url && (
           <a className="btn" href={song.arrangement_url} target="_blank" rel="noopener noreferrer" aria-label={`Open the score for ${song.title} in a new tab`}>
