@@ -14,6 +14,7 @@ import {
   type SongPatch,
 } from '../lib/songs'
 import { hueStyle } from './Piano'
+import type { ReactNode } from 'react'
 
 type Keyed = Pick<Song, 'key_tonic' | 'key_mode'>
 
@@ -222,5 +223,18 @@ export function PlayedButton({
         </svg>
       </span>
     </button>
+  )
+}
+
+/**
+ * A song's title over a quieter second line (the artist by default), set the same way in every
+ * list: 17 pt on a phone, a compact 14 px medium on desktop.
+ */
+export function SongLabel({ title, subtitle }: { title: string; subtitle?: ReactNode }) {
+  return (
+    <span className="min-w-0 flex-1">
+      <span className="block truncate text-[1.0625rem] md:text-sm md:font-medium">{title}</span>
+      {subtitle && <span className="block truncate text-sm text-ink-2 md:text-xs">{subtitle}</span>}
+    </span>
   )
 }

@@ -336,16 +336,35 @@ describe('key flow in sets', () => {
   const label = (a: string, b: string) => transition(k(a), k(b)).label
 
   it('names the change between two keys', () => {
-    expect(label('C', 'C')).toBe('Same key')
-    expect(label('C', 'A minor')).toBe('Relative minor')
-    expect(label('G minor', 'Bb')).toBe('Relative major')
-    expect(label('C', 'C minor')).toBe('Parallel minor')
-    expect(label('C', 'G')).toBe('Down a 4th')
-    expect(label('C', 'F')).toBe('Up a 4th')
-    expect(label('Eb', 'E')).toBe('Up a half step')
-    expect(label('C', 'F#')).toBe('A tritone away')
-    expect(label('C', 'D minor')).toBe('Up a whole step, to minor')
-    expect(transition(k('C'), song({ title: 'none' })).label).toBe('No key set')
+    expect(label('C', 'C')).toBe('same key')
+    expect(label('C', 'A minor')).toBe('relative minor')
+    expect(label('G minor', 'Bb')).toBe('relative major')
+    expect(label('C', 'C minor')).toBe('parallel minor')
+    expect(label('C', 'G')).toBe('down a fourth')
+    expect(label('C', 'F')).toBe('up a fourth')
+    expect(label('Eb', 'E')).toBe('up a half step')
+    expect(label('C', 'F#')).toBe('a tritone away')
+    expect(label('C', 'D minor')).toBe('up a whole step, into minor')
+    expect(transition(k('C'), song({ title: 'none' })).label).toBe('no key')
+  })
+
+  it('writes a terse marking for the page', () => {
+    const short = (a: string, b: string) => transition(k(a), k(b)).short
+    expect(short('C', 'F')).toBe('↑ 4th')
+    expect(short('C', 'G')).toBe('↓ 4th')
+    expect(short('C', 'Eb')).toBe('↑ min 3rd')
+    expect(short('C', 'D minor')).toBe('↑ whole step · minor')
+    expect(short('C', 'F#')).toBe('tritone')
+    expect(short('C', 'A minor')).toBe('relative minor')
+    expect(short('C', 'C minor')).toBe('parallel minor')
+  })
+
+  it('says which way the tonic moves', () => {
+    expect(transition(k('C'), k('F')).direction).toBe('up')
+    expect(transition(k('C'), k('G')).direction).toBe('down')
+    expect(transition(k('C'), k('A minor')).direction).toBe('down')
+    expect(transition(k('C'), k('F#')).direction).toBe('none')
+    expect(transition(k('C'), k('C minor')).direction).toBe('none')
   })
 
   it('rates closeness by key signature, treating enharmonic keys as one', () => {
@@ -353,12 +372,12 @@ describe('key flow in sets', () => {
     expect(transition(k('C'), k('A minor')).distance).toBe('close')
     expect(transition(k('C'), k('D')).distance).toBe('moderate')
     expect(transition(k('C'), k('Db')).distance).toBe('distant')
-    expect(transition(k('F#'), k('Gb')).label).toBe('Same key')
+    expect(transition(k('F#'), k('Gb')).label).toBe('same key')
     expect(transition(k('C'), song({ title: 'none' })).distance).toBe('unknown')
   })
 
   it('lists one change per neighbouring pair', () => {
-    expect(transitions([k('C'), k('G'), k('D')]).map((t) => t.label)).toEqual(['Down a 4th', 'Down a 4th'])
+    expect(transitions([k('C'), k('G'), k('D')]).map((t) => t.label)).toEqual(['down a fourth', 'down a fourth'])
     expect(transitions([k('C')])).toEqual([])
   })
 
