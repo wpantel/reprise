@@ -61,6 +61,8 @@ can show just these songs or hide them.
 - `bookmark:` with nothing after it, or followed straight by another tag → on.
 - `bookmark: yes` → on.
 - `bookmark: no`, or no `bookmark:` tag at all → off.
+- `bookmark:` at the very start of the title → on, and the text after it is
+  the title (`bookmark: Clair de lune`).
 
 ## Builder's calls (mine, to check)
 

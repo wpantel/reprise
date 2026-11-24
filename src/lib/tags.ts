@@ -42,6 +42,7 @@ export type ParsedSong = Required<Pick<NewSong, 'title'>> &
  * Pulls "artist:", "key:", "confidence:" and "bookmark:" tags off a typed title, in any order, e.g.
  * "Liebestraum No. 3 key: A flat major artist: Franz Liszt confidence: mf".
  * "bookmark:" alone or "bookmark: yes" marks the song want to learn; "bookmark: no" doesn't.
+ * A "bookmark:" at the very start marks it too, and the text after it stays the title.
  * Tag names are case-insensitive and need no space before them. A tag whose value
  * isn't understood (an empty artist, "key: H major", "confidence: loud") stays in the text.
  */
@@ -64,7 +65,12 @@ export function parseTags(input: string): ParsedSong {
     else if (tag.name === 'key' && parseKey(value)) Object.assign(song, parseKey(value))
     else if (tag.name === 'confidence' && parseConfidence(value)) song.confidence = parseConfidence(value)
     else if (tag.name === 'bookmark' && parseYesNo(value) !== null) song.want_to_learn = parseYesNo(value)!
-    else continue
+    else if (tag.name === 'bookmark' && tag.start === 0) {
+      // A leading "bookmark:" flags the song; what follows it is the title.
+      song.want_to_learn = true
+      kept.push({ ...tag, end: tag.valueStart })
+      continue
+    } else continue
     kept.push(tag)
   }
 

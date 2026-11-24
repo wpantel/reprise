@@ -249,9 +249,14 @@ describe('tags in typed titles', () => {
     expect(parseTags('Clair de lune bookmark:no')).toEqual({ title: 'Clair de lune', artist: null, want_to_learn: false })
     expect(parseTags('Clair de lune bookmark: no artist: Debussy')).toEqual({ title: 'Clair de lune', artist: 'Debussy', want_to_learn: false })
   })
+  it('reads a bookmark: tag at the start of a title', () => {
+    expect(parseTags('bookmark: Clair de lune')).toEqual({ title: 'Clair de lune', artist: null, want_to_learn: true })
+    expect(parseTags('Bookmark: Gymnopedie artist: Satie')).toEqual({ title: 'Gymnopedie', artist: 'Satie', want_to_learn: true })
+  })
   it('leaves a bookmark: tag it can’t read in the title', () => {
     expect(parseTags('Clair de lune bookmark: maybe')).toEqual({ title: 'Clair de lune bookmark: maybe', artist: null })
     expect(parseTags('The bookmark song').want_to_learn).toBeUndefined()
+    expect(parseTags('My Bookmark: A Story')).toEqual({ title: 'My Bookmark: A Story', artist: null })
   })
   it('reads keys written many ways', () => {
     expect(parseKey('A major')).toEqual({ key_tonic: 'A', key_mode: 'major' })
