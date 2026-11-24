@@ -59,6 +59,9 @@ describe('keys', () => {
 })
 
 describe('bulk add', () => {
+  it('keeps a bookmark: tag on each line', () => {
+    expect(parseBulk('Clair de lune bookmark:\nGymnopédie', false).map((s) => s.want_to_learn)).toEqual([true, undefined])
+  })
   it('parses one title per line, dropping blanks and list markers', () => {
     expect(parseBulk('Clair de Lune\n\n - River Flows in You\n3. Ob-La-Di\n', false)).toEqual([
       { title: 'Clair de Lune', artist: null },
@@ -237,6 +240,18 @@ describe('tags in typed titles', () => {
     expect(parseTags('Song key: H major artist: X')).toEqual({ title: 'Song key: H major', artist: 'X' })
     expect(parseTags('Song confidence: mp')).toEqual({ title: 'Song confidence: mp', artist: null })
     expect(parseTags('Whiskey: A Love Story')).toEqual({ title: 'Whiskey: A Love Story', artist: null })
+  })
+  it('reads a bookmark: tag as want to learn', () => {
+    expect(parseTags('Clair de lune bookmark:')).toEqual({ title: 'Clair de lune', artist: null, want_to_learn: true })
+    expect(parseTags('Clair de lune bookmark: artist: Debussy')).toMatchObject({ title: 'Clair de lune', artist: 'Debussy', want_to_learn: true })
+    expect(parseTags('Clair de lune bookmark: yes').want_to_learn).toBe(true)
+    expect(parseTags('Clair de lune Bookmark: Yes.').want_to_learn).toBe(true)
+    expect(parseTags('Clair de lune bookmark:no')).toEqual({ title: 'Clair de lune', artist: null, want_to_learn: false })
+    expect(parseTags('Clair de lune bookmark: no artist: Debussy')).toEqual({ title: 'Clair de lune', artist: 'Debussy', want_to_learn: false })
+  })
+  it('leaves a bookmark: tag it can’t read in the title', () => {
+    expect(parseTags('Clair de lune bookmark: maybe')).toEqual({ title: 'Clair de lune bookmark: maybe', artist: null })
+    expect(parseTags('The bookmark song').want_to_learn).toBeUndefined()
   })
   it('reads keys written many ways', () => {
     expect(parseKey('A major')).toEqual({ key_tonic: 'A', key_mode: 'major' })
