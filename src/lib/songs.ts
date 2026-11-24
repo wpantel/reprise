@@ -48,6 +48,14 @@ export interface NewSong {
   want_to_learn?: boolean
 }
 
+/** Songs you can play now: everything not bookmarked to learn. */
+export const playableSongs = <T extends Song>(songs: T[]): T[] => songs.filter((s) => !s.want_to_learn)
+
+/** Turns the bookmark on or off. A song coming off it with no confidence yet starts at pp. */
+export function bookmarkPatch(song: Song, on: boolean): SongPatch {
+  return !on && song.confidence === null ? { want_to_learn: false, confidence: 1 } : { want_to_learn: on }
+}
+
 /** A song as saved before want_to_learn existed reads as not bookmarked. */
 export function normalizeSong(raw: Omit<Song, 'want_to_learn'> & { want_to_learn?: boolean }): Song {
   return { ...raw, want_to_learn: raw.want_to_learn ?? false }

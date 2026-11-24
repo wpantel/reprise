@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { detectArrangementType, normalizeUrl } from './arrangement'
 import { flagDuplicates, parseBulk } from './bulk'
-import { EMPTY_FILTERS, matches, NO_SCORE, NONE, sortSongs } from './filters'
+import { EMPTY_FILTERS, hasActiveFilters, matches, NO_SCORE, NONE, sortSongs } from './filters'
 import { agoLabel, analytics, daysSince, recentlyPlayed, reviveGroups } from './history'
 import { EMPTY_MEDLEY, medleySongs, moved, shuffled, swapCandidates } from './medley'
 import { smoothOrder, transition, transitions } from './keyflow'
 import { isNetworkError, isQueued, newQueuedPlay, offlineCache } from './offline'
 import { parseConfidence, parseKey, parseTags } from './tags'
-import { keyHue, keyLabel, normalizeSong, parseKeyId, spellings, type Play, type Song } from './songs'
+import { bookmarkPatch, keyHue, keyLabel, normalizeSong, playableSongs, parseKeyId, spellings, type Play, type Song } from './songs'
 
 const song = (over: Partial<Song>): Song => ({
   id: over.title ?? 'x',
@@ -435,5 +435,31 @@ describe('key flow in sets', () => {
     expect(new Set(order).size).toBe(set.length)
     const cost = (o: number[]) => transitions(o.map((i) => set[i])).reduce((s, t) => s + t.cost, 0)
     expect(cost(order)).toBeLessThan(cost(set.map((_, i) => i)) / 2)
+  })
+})
+
+describe('want to learn', () => {
+  const a = song({ title: 'A' })
+  const b = song({ title: 'B', want_to_learn: true })
+  it('filters to bookmarked songs, or hides them', () => {
+    expect([a, b].filter((s) => matches(s, { ...EMPTY_FILTERS, bookmarked: true }))).toEqual([b])
+    expect([a, b].filter((s) => matches(s, { ...EMPTY_FILTERS, bookmarked: false }))).toEqual([a])
+    expect([a, b].filter((s) => matches(s, EMPTY_FILTERS))).toEqual([a, b])
+    expect(hasActiveFilters({ ...EMPTY_FILTERS, bookmarked: false })).toBe(true)
+    expect(hasActiveFilters(EMPTY_FILTERS)).toBe(false)
+  })
+  it('leaves bookmarked songs out of the playable ones', () => {
+    expect(playableSongs([a, b])).toEqual([a])
+  })
+  it('starts a song at pp when its bookmark comes off', () => {
+    expect(bookmarkPatch(song({}), true)).toEqual({ want_to_learn: true })
+    expect(bookmarkPatch(song({ want_to_learn: true }), false)).toEqual({ want_to_learn: false, confidence: 1 })
+    expect(bookmarkPatch(song({ want_to_learn: true, confidence: 3 }), false)).toEqual({ want_to_learn: false })
+  })
+  it('doesn’t suggest a bookmarked song as a swap', () => {
+    const c = song({ title: 'C', key_tonic: 'D', key_mode: 'major' })
+    const d = song({ title: 'D', key_tonic: 'D', key_mode: 'major', want_to_learn: true })
+    const e = song({ title: 'E', key_tonic: 'D', key_mode: 'major' })
+    expect(swapCandidates(c, [c, d, e], [c.id])).toEqual([e])
   })
 })
