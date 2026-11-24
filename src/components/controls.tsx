@@ -230,10 +230,35 @@ export function PlayedButton({
  * A song's title over a quieter second line (the artist by default), set the same way in every
  * list: 17 pt on a phone, a compact 14 px medium on desktop.
  */
-export function SongLabel({ title, subtitle }: { title: string; subtitle?: ReactNode }) {
+/** Outline when off, filled when on: the want-to-learn bookmark. */
+export function Bookmark({ filled }: { filled: boolean }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 16 16" className="h-[1em] w-[1em] shrink-0" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round">
+      <path d="M4 1.8h8a.7.7 0 0 1 .7.7v11.7L8 11.1l-4.7 3.1V2.5a.7.7 0 0 1 .7-.7z" />
+    </svg>
+  )
+}
+
+/**
+ * The dashed "Want to learn" label shown beside a bookmarked song's title.
+ * On a phone it shrinks to the bookmark alone so the title keeps its width.
+ */
+export function WantToLearnTag() {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 text-xs text-accent md:rounded-full md:border md:border-dashed md:border-accent md:px-1.5">
+      <Bookmark filled />
+      <span className="sr-only md:not-sr-only">Want to learn</span>
+    </span>
+  )
+}
+
+export function SongLabel({ title, subtitle, bookmarked = false }: { title: string; subtitle?: ReactNode; bookmarked?: boolean }) {
   return (
     <span className="min-w-0 flex-1">
-      <span className="block truncate text-[1.0625rem] md:text-sm md:font-medium">{title}</span>
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="truncate text-[1.0625rem] md:text-sm md:font-medium">{title}</span>
+        {bookmarked && <WantToLearnTag />}
+      </span>
       {subtitle && <span className="block truncate text-sm text-ink-2 md:text-xs">{subtitle}</span>}
     </span>
   )

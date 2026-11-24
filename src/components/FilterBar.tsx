@@ -53,6 +53,16 @@ export function FilterControls({ songs, filters, searchRef, onFilters }: FilterP
         ))}
         <option value={NONE}>Not set</option>
       </select>
+      <select
+        aria-label="Filter by bookmark"
+        className={`${selectClass} col-span-2`}
+        value={filters.bookmarked === null ? '' : String(filters.bookmarked)}
+        onChange={(e) => set({ bookmarked: e.target.value === '' ? null : e.target.value === 'true' })}
+      >
+        <option value="">Any songs</option>
+        <option value="true">Want to learn</option>
+        <option value="false">Hide want to learn</option>
+      </select>
       {(tags.length > 0 || filters.tags.length > 0) && (
         <select
           aria-label="Filter by tag"
@@ -181,6 +191,8 @@ export function FilterSummary({
     })
   if (filters.played)
     chips.push({ label: filters.played === 'recent' ? 'Played in the last 30 days' : 'Not played in 30 days', clear: () => set({ played: null }) })
+  if (filters.bookmarked !== null)
+    chips.push({ label: filters.bookmarked ? 'Want to learn' : 'Hiding want to learn', clear: () => set({ bookmarked: null }) })
   for (const t of filters.tags) chips.push({ label: `#${t}`, clear: () => set({ tags: filters.tags.filter((x) => x !== t) }) })
 
   return (

@@ -32,7 +32,7 @@ export function SongRow({
         aria-label={`Edit ${song.title}`}
         className="flex min-h-14 min-w-0 items-center gap-3 py-1.5 text-left disabled:opacity-100 md:min-h-11"
       >
-        <SongLabel title={song.title} subtitle={pending ? 'Saving…' : song.artist} />
+        <SongLabel title={song.title} subtitle={pending ? 'Saving…' : song.artist} bookmarked={song.want_to_learn} />
         {/* Phone: key and recall at a glance. Editing happens in the detail panel. */}
         <span className="flex shrink-0 flex-col items-end gap-0.5 md:hidden">
           <KeyBadge song={song} />
