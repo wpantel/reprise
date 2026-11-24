@@ -7,7 +7,7 @@ import { EMPTY_MEDLEY, medleySongs, moved, shuffled, swapCandidates } from './me
 import { smoothOrder, transition, transitions } from './keyflow'
 import { isNetworkError, isQueued, newQueuedPlay, offlineCache } from './offline'
 import { parseConfidence, parseKey, parseTags } from './tags'
-import { keyHue, keyLabel, parseKeyId, spellings, type Play, type Song } from './songs'
+import { keyHue, keyLabel, normalizeSong, parseKeyId, spellings, type Play, type Song } from './songs'
 
 const song = (over: Partial<Song>): Song => ({
   id: over.title ?? 'x',
@@ -20,6 +20,7 @@ const song = (over: Partial<Song>): Song => ({
   arrangement_url: null,
   arrangement_type: null,
   tags: [],
+  want_to_learn: false,
   created_at: '2026-01-01T00:00:00Z',
   ...over,
 })
@@ -277,6 +278,19 @@ describe('offline copy', () => {
     }
   }
   const play = (id: string): Play => ({ id, song_id: 'a', played_at: '2026-11-01T20:00:00Z', felt_rusty: false })
+
+  it('reads songs saved before want_to_learn existed as not bookmarked', () => {
+    const { want_to_learn: _, ...old } = song({ title: 'Old' })
+    expect(normalizeSong(old).want_to_learn).toBe(false)
+    expect(normalizeSong({ ...old, want_to_learn: true }).want_to_learn).toBe(true)
+  })
+
+  it('fills want_to_learn on an offline snapshot written before it existed', () => {
+    const storage = memoryStorage()
+    const { want_to_learn: _, ...old } = song({ id: 'a' })
+    storage.setItem('reprise.snapshot.v1.u', JSON.stringify({ songs: [old], plays: [], sets: [], savedAt: '2026-11-01T21:00:00Z' }))
+    expect(offlineCache('u', storage).readSnapshot()!.songs[0].want_to_learn).toBe(false)
+  })
 
   it('saves only what the server has confirmed', () => {
     const cache = offlineCache('u1', memoryStorage())

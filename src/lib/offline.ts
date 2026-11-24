@@ -1,4 +1,4 @@
-import type { Play, Song, SongSet } from './songs'
+import { normalizeSong, type Play, type Song, type SongSet } from './songs'
 
 /** The library as last loaded from Supabase, kept on the device so the app opens without a connection. */
 export interface Snapshot {
@@ -62,7 +62,10 @@ export function offlineCache(userId: string, storage: Storage | undefined = devi
   const snapshotKey = `reprise.snapshot.v1.${userId}`
   const queueKey = `reprise.queuedPlays.v1.${userId}`
   return {
-    readSnapshot: () => readJson<Snapshot>(storage, snapshotKey),
+    readSnapshot(): Snapshot | null {
+      const snap = readJson<Snapshot>(storage, snapshotKey)
+      return snap && { ...snap, songs: snap.songs.map(normalizeSong) }
+    },
     /** Saves what was loaded from Supabase, leaving out anything not saved there yet. */
     writeSnapshot(songs: (Song & { pending?: boolean })[], plays: Play[], sets: SongSet[], savedAt = new Date().toISOString()) {
       const snapshot: Snapshot = {

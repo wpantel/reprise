@@ -34,6 +34,8 @@ export interface Song {
   arrangement_url: string | null
   arrangement_type: ArrangementType | null
   tags: string[]
+  /** Bookmarked as a song to learn: heard it, haven't started it. */
+  want_to_learn: boolean
   created_at: string
 }
 export type SongPatch = Partial<Omit<Song, 'id' | 'created_at'>>
@@ -43,6 +45,12 @@ export interface NewSong {
   key_tonic?: Tonic | null
   key_mode?: Mode | null
   confidence?: number | null
+  want_to_learn?: boolean
+}
+
+/** A song as saved before want_to_learn existed reads as not bookmarked. */
+export function normalizeSong(raw: Omit<Song, 'want_to_learn'> & { want_to_learn?: boolean }): Song {
+  return { ...raw, want_to_learn: raw.want_to_learn ?? false }
 }
 
 /** One time a song was played. */
