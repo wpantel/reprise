@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type InputHTMLAttributes } from 're
 import { detectArrangementType, normalizeUrl } from '../lib/arrangement'
 import {
   ARRANGEMENT_TYPES,
+  bookmarkPatch,
   PITCH_NAMES,
   pitchClass,
   spellings,
@@ -14,7 +15,7 @@ import {
 } from '../lib/songs'
 import { agoLabel, daysSince, isSameDay } from '../lib/history'
 import { playKey } from '../lib/sound'
-import { Dynamics, KeyBadge, RecallSelect } from './controls'
+import { Bookmark, Dynamics, KeyBadge, RecallSelect } from './controls'
 import { Modal } from './Modal'
 import { Piano } from './Piano'
 
@@ -217,6 +218,15 @@ export function SongDetail({
             “performance-ready”.
           </p>
         </div>
+
+        <button
+          aria-pressed={song.want_to_learn}
+          onClick={() => onPatch(bookmarkPatch(song, !song.want_to_learn))}
+          className={`btn self-start gap-2 ${song.want_to_learn ? 'border-accent text-accent' : ''}`}
+        >
+          <Bookmark filled={song.want_to_learn} />
+          Want to learn
+        </button>
 
         <fieldset className="flex flex-col gap-3 border-t border-line pt-4">
           <legend className="sr-only">Arrangement</legend>

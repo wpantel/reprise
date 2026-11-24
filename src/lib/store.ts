@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { NewSong, Play, SetPatch, Song, SongPatch, SongSet } from './songs'
+import { normalizeSong, type NewSong, type Play, type SetPatch, type Song, type SongPatch, type SongSet } from './songs'
 
 export interface SongStore {
   list(): Promise<Song[]>
@@ -17,7 +17,7 @@ export interface SongStore {
 }
 
 const COLUMNS =
-  'id,title,artist,key_tonic,key_mode,recall,confidence,arrangement_url,arrangement_type,tags,created_at'
+  'id,title,artist,key_tonic,key_mode,recall,confidence,arrangement_url,arrangement_type,tags,want_to_learn,created_at'
 
 export function supabaseStore(client: SupabaseClient): SongStore {
   return {
@@ -33,6 +33,7 @@ export function supabaseStore(client: SupabaseClient): SongStore {
         key_tonic: s.key_tonic ?? null,
         key_mode: s.key_mode ?? null,
         confidence: s.confidence ?? null,
+        want_to_learn: s.want_to_learn ?? false,
       }))
       const { data, error } = await client.from('songs').insert(rows).select(COLUMNS)
       if (error) throw error
@@ -104,7 +105,7 @@ const writePlays = (plays: Play[]) => localStorage.setItem(LOCAL_PLAYS_KEY, JSON
 const LOCAL_SETS_KEY = 'repertoire.sets.v1'
 const readSets = (): SongSet[] => JSON.parse(localStorage.getItem(LOCAL_SETS_KEY) ?? '[]')
 const writeSets = (sets: SongSet[]) => localStorage.setItem(LOCAL_SETS_KEY, JSON.stringify(sets))
-const read = (): Song[] => JSON.parse(localStorage.getItem(LOCAL_KEY) ?? '[]')
+const read = (): Song[] => JSON.parse(localStorage.getItem(LOCAL_KEY) ?? '[]').map(normalizeSong)
 const write = (songs: Song[]) => localStorage.setItem(LOCAL_KEY, JSON.stringify(songs))
 
 /** Browser-only storage, used when Supabase isn't configured. */
@@ -125,6 +126,7 @@ export const localStore: SongStore = {
       arrangement_url: null,
       arrangement_type: null,
       tags: [],
+      want_to_learn: s.want_to_learn ?? false,
       created_at: new Date(now + i).toISOString(),
     }))
     write([...read(), ...created])

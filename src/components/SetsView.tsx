@@ -188,7 +188,7 @@ function SetEditor({
   const inSet = ids.map((id) => songsById.get(id)!)
   const words = fold(query).split(' ').filter(Boolean)
   const matches = words.length
-    ? songs.filter((s) => !ids.includes(s.id) && words.every((w) => fold(`${s.title} ${s.artist ?? ''}`).includes(w))).slice(0, 8)
+    ? songs.filter((s) => !s.want_to_learn && !ids.includes(s.id) && words.every((w) => fold(`${s.title} ${s.artist ?? ''}`).includes(w))).slice(0, 8)
     : []
 
   // Smoothing and its undo glide each row from where it was to where it lands.
@@ -300,7 +300,7 @@ function SetEditor({
                   </button>
                   <span className="w-6 shrink-0 text-right font-display text-2xl leading-none text-ink-2 tabular-nums">{i + 1}</span>
                   <span className="flex min-w-0 flex-1 basis-[60%] pl-1 md:basis-0">
-                    <SongLabel title={song.title} subtitle={song.artist} />
+                    <SongLabel title={song.title} subtitle={song.artist} bookmarked={song.want_to_learn} />
                   </span>
                   {/* On a phone these drop to a second line so the title keeps its width. */}
                   <span className="ml-auto flex items-center gap-2">

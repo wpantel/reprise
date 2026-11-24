@@ -50,6 +50,6 @@ export function moved<T>(items: T[], from: number, to: number): T[] {
 export function swapCandidates<T extends Song>(song: Song, songs: T[], inSet: string[]): T[] {
   if (!song.key_tonic) return []
   return songs
-    .filter((s) => s.key_tonic && pitchClass(s.key_tonic) === pitchClass(song.key_tonic!) && s.key_mode === song.key_mode && !inSet.includes(s.id))
+    .filter((s) => !s.want_to_learn && s.key_tonic && pitchClass(s.key_tonic) === pitchClass(song.key_tonic!) && s.key_mode === song.key_mode && !inSet.includes(s.id))
     .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }))
 }

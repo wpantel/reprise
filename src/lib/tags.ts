@@ -29,18 +29,26 @@ export function parseConfidence(text: string): number | null {
   return i < 0 ? null : i + 1
 }
 
+/** "bookmark:" with no value or "yes" (any case) is true, "no" is false, anything else null. */
+function parseYesNo(text: string): boolean | null {
+  const v = text.trim().replace(/\.+$/, '').toLowerCase()
+  return v === '' || v === 'yes' ? true : v === 'no' ? false : null
+}
+
 export type ParsedSong = Required<Pick<NewSong, 'title'>> &
-  Pick<NewSong, 'artist' | 'key_tonic' | 'key_mode' | 'confidence'>
+  Pick<NewSong, 'artist' | 'key_tonic' | 'key_mode' | 'confidence' | 'want_to_learn'>
 
 /**
- * Pulls "artist:", "key:" and "confidence:" tags off a typed title, in any order, e.g.
+ * Pulls "artist:", "key:", "confidence:" and "bookmark:" tags off a typed title, in any order, e.g.
  * "Liebestraum No. 3 key: A flat major artist: Franz Liszt confidence: mf".
+ * "bookmark:" alone or "bookmark: yes" marks the song want to learn; "bookmark: no" doesn't.
+ * A "bookmark:" at the very start marks it too, and the text after it stays the title.
  * Tag names are case-insensitive and need no space before them. A tag whose value
  * isn't understood (an empty artist, "key: H major", "confidence: loud") stays in the text.
  */
 export function parseTags(input: string): ParsedSong {
   const text = input.trim()
-  const found = [...text.matchAll(/(artist|key|confidence)\s*:/gi)]
+  const found = [...text.matchAll(/(artist|key|confidence|bookmark)\s*:/gi)]
   // Each tag's value runs to the next tag, or the end.
   const tags = found.map((m, i) => ({
     name: m[1].toLowerCase(),
@@ -56,7 +64,13 @@ export function parseTags(input: string): ParsedSong {
     if (tag.name === 'artist' && value) song.artist = value
     else if (tag.name === 'key' && parseKey(value)) Object.assign(song, parseKey(value))
     else if (tag.name === 'confidence' && parseConfidence(value)) song.confidence = parseConfidence(value)
-    else continue
+    else if (tag.name === 'bookmark' && parseYesNo(value) !== null) song.want_to_learn = parseYesNo(value)!
+    else if (tag.name === 'bookmark' && tag.start === 0) {
+      // A leading "bookmark:" flags the song; what follows it is the title.
+      song.want_to_learn = true
+      kept.push({ ...tag, end: tag.valueStart })
+      continue
+    } else continue
     kept.push(tag)
   }
 

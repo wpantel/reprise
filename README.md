@@ -16,7 +16,10 @@ browser only.
 ## Sync across devices with Supabase (free tier)
 
 1. Create a project at supabase.com.
-2. In the SQL Editor, run `supabase/migrations/0001_songs.sql`.
+2. In the SQL Editor, run each file in `supabase/migrations/` in order
+   (`0001` to `0004`). Already set up? Run any you haven't yet, such as
+   `0004_want_to_learn.sql`, before deploying: the app won't load your songs
+   until the newest one is in.
 3. Copy `.env.example` to `.env.local` and fill in the project URL and the
    publishable (anon) key from Project Settings > API.
 4. Restart `npm run dev`, then create your account on the sign-in screen.
@@ -35,6 +38,13 @@ The installed app opens with no connection. It shows your library as of the
 last time it synced, and plays you log offline are kept on the phone and sent
 when you're back online. Other edits need a connection. The service worker only
 runs in production builds (`npm run build && npm run preview`), not in `npm run dev`.
+
+## Want to learn
+
+Bookmark a song you've heard but haven't started: tap Want to learn in its
+details, or add `bookmark:` (or `bookmark: yes`) to a typed title. Bookmarked
+songs stay out of Revive, Analytics, Medley and set suggestions until you take
+the bookmark off; a song with no confidence then starts at pp.
 
 ## Shortcuts
 

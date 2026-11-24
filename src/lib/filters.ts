@@ -16,14 +16,17 @@ export interface Filters {
   tags: string[]
   /** Played in the last 30 days ('recent') or not ('stale'). */
   played: 'recent' | 'stale' | null
+  /** Only songs bookmarked to learn (true), only the rest (false), or both (null). */
+  bookmarked: boolean | null
 }
-export const EMPTY_FILTERS: Filters = { q: '', pc: null, mode: null, recall: null, confidence: null, tags: [], played: null }
+export const EMPTY_FILTERS: Filters = { q: '', pc: null, mode: null, recall: null, confidence: null, tags: [], played: null, bookmarked: null }
 
 export const hasActiveFilters = (f: Filters) =>
-  f.q.trim() !== '' || f.pc !== null || f.mode !== null || f.recall !== null || f.confidence !== null || f.tags.length > 0 || f.played !== null
+  f.q.trim() !== '' || f.pc !== null || f.mode !== null || f.recall !== null || f.confidence !== null || f.tags.length > 0 || f.played !== null || f.bookmarked !== null
 
 export function matches(song: Song, f: Filters, recent?: Set<string>) {
   if (f.played !== null && (recent?.has(song.id) ?? false) !== (f.played === 'recent')) return false
+  if (f.bookmarked !== null && song.want_to_learn !== f.bookmarked) return false
   if (f.pc === NONE && song.key_tonic) return false
   if (typeof f.pc === 'number' && (!song.key_tonic || pitchClass(song.key_tonic) !== f.pc)) return false
   if (f.mode !== null && song.key_mode !== f.mode) return false

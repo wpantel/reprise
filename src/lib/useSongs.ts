@@ -139,6 +139,7 @@ export function useSongs(store: SongStore, onError: (message: string) => void, {
         arrangement_url: null,
         arrangement_type: null,
         tags: [],
+        want_to_learn: d.want_to_learn ?? false,
         created_at: new Date(now + i).toISOString(),
         pending: true,
       }))

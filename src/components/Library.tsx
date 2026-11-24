@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { EMPTY_FILTERS, hasActiveFilters, matches, sortSongs, type Filters, type Sort } from '../lib/filters'
 import { EMPTY_MEDLEY, type MedleyState } from '../lib/medley'
 import { agoLabel, daysSince, isSameDay, lastPlays, recentlyPlayed, reviveGroups } from '../lib/history'
-import type { Play, Song } from '../lib/songs'
+import { playableSongs, type Play, type Song } from '../lib/songs'
 import type { OfflineCache } from '../lib/offline'
 import type { SongStore } from '../lib/store'
 import { parseTags } from '../lib/tags'
@@ -97,7 +97,8 @@ export function Library({
   const today = now.toDateString()
   const last = useMemo(() => lastPlays(plays), [plays])
   const recent = useMemo(() => recentlyPlayed(plays, new Date()), [plays, today]) // eslint-disable-line react-hooks/exhaustive-deps
-  const dueCount = useMemo(() => reviveGroups(songs, plays, new Date()).due.length, [songs, plays, today]) // eslint-disable-line react-hooks/exhaustive-deps
+  const playable = useMemo(() => playableSongs(songs), [songs])
+  const dueCount = useMemo(() => reviveGroups(playable, plays, new Date()).due.length, [playable, plays, today]) // eslint-disable-line react-hooks/exhaustive-deps
   const visible = useMemo(() => sortSongs(songs.filter((s) => matches(s, filters, recent)), sort), [songs, filters, sort, recent])
   const allTags = useMemo(() => [...new Set(songs.flatMap((s) => s.tags))].sort(), [songs])
   const openSong = songs.find((s) => s.id === openId)
@@ -232,7 +233,7 @@ export function Library({
             </div>
           )}
 
-          {view === 'medley' && status === 'ready' && <MedleyView songs={songs} medley={medley} onMedley={setMedley} onSaveSet={saveSet} />}
+          {view === 'medley' && status === 'ready' && <MedleyView songs={playable} medley={medley} onMedley={setMedley} onSaveSet={saveSet} />}
 
           {view === 'sets' && status === 'ready' && (
             <SetsView
@@ -248,15 +249,15 @@ export function Library({
           )}
 
           {view === 'revive' && status === 'ready' && (
-            <ReviveView songs={songs} plays={plays} onOpen={(s) => setOpenId(s.id)} onPlayed={played} />
+            <ReviveView songs={playable} plays={plays} onOpen={(s) => setOpenId(s.id)} onPlayed={played} />
           )}
 
           {view === 'analytics' && status === 'ready' && (
             <AnalyticsView
-              songs={songs}
+              songs={playable}
               plays={plays}
               onShow={(patch) => {
-                setFilters({ ...EMPTY_FILTERS, ...patch })
+                setFilters({ ...EMPTY_FILTERS, bookmarked: false, ...patch })
                 setView('library')
               }}
             />
