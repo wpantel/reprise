@@ -54,8 +54,6 @@ a set. Existing sets that already contain one keep it.
 **Finding them.** The filter bar gets a "Want to learn" option, so the library
 can show just these songs or hide them.
 
-## Builder's calls (mine, to check)
-
 **Typing it.** Quick Add and Bulk Add read a `bookmark:` tag the way they read
 `key:` and `confidence:` (case-insensitive, any position):
 - `bookmark:` with nothing after it, or followed straight by another tag → on.
